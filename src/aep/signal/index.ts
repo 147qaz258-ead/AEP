@@ -89,6 +89,26 @@ const NORMALIZATION_PATTERNS = {
 const MAX_NORMALIZED_LENGTH = 220;
 
 /**
+ * Length of hash to generate (first 16 chars of SHA-256)
+ */
+const HASH_LENGTH = 16;
+
+/**
+ * Result of error signature normalization.
+ * Tracks original input, normalized output, hash, and transformations applied.
+ */
+export interface NormalizationResult {
+  /** Original input text */
+  original: string;
+  /** Normalized error signature (max 220 chars) */
+  normalized: string;
+  /** Stable SHA-256 hash (first 16 chars) for deduplication */
+  hash: string;
+  /** List of transformations applied during normalization */
+  transformations: string[];
+}
+
+/**
  * Generates a stable SHA-256 hash for signal deduplication.
  * Uses first 16 characters of hex digest for compact representation.
  *
@@ -137,6 +157,156 @@ export function normalizeErrorSignature(text: string): string {
 
   // Truncate to max length
   return normalized.substring(0, MAX_NORMALIZED_LENGTH);
+}
+
+/**
+ * Error Signature Normalizer class.
+ *
+ * Normalizes error messages by removing platform-specific paths, hex IDs,
+ * timestamps, and other noise to generate stable hashes for error signature matching.
+ *
+ * Implements the interface defined in TASK-E-001-SIG-001.
+ */
+export class ErrorSignatureNormalizer {
+  /** Maximum length for normalized signatures */
+  static readonly MAX_LENGTH = MAX_NORMALIZED_LENGTH;
+  /** Length of hash to generate */
+  static readonly HASH_LENGTH = HASH_LENGTH;
+
+  /**
+   * Normalize error signature by removing noise.
+   *
+   * Steps:
+   * 1. Convert to lowercase
+   * 2. Remove Windows paths (C:\...)
+   * 3. Remove Unix paths (/...)
+   * 4. Remove hex values (0x...)
+   * 5. Remove standalone numbers
+   * 6. Truncate to MAX_LENGTH
+   * 7. Generate hash
+   *
+   * @param text - Raw error text to normalize
+   * @returns NormalizationResult with original, normalized, hash, and transformations
+   */
+  normalize(text: string): NormalizationResult {
+    const transformations: string[] = [];
+    const original = text;
+
+    // 1. Convert to lowercase
+    let normalized = text.toLowerCase();
+    if (normalized !== text) {
+      transformations.push('lowercase');
+    }
+
+    // 2. Remove Windows paths (C:\...)
+    const windowsResult = this.removeWindowsPaths(normalized);
+    normalized = windowsResult.text;
+    if (windowsResult.count > 0) {
+      transformations.push(`windows_paths:${windowsResult.count}`);
+    }
+
+    // 3. Remove Unix paths (/...)
+    const unixResult = this.removeUnixPaths(normalized);
+    normalized = unixResult.text;
+    if (unixResult.count > 0) {
+      transformations.push(`unix_paths:${unixResult.count}`);
+    }
+
+    // 4. Remove hex values (0x...)
+    const hexResult = this.removeHexValues(normalized);
+    normalized = hexResult.text;
+    if (hexResult.count > 0) {
+      transformations.push(`hex_values:${hexResult.count}`);
+    }
+
+    // 5. Remove standalone numbers
+    const numResult = this.removeNumbers(normalized);
+    normalized = numResult.text;
+    if (numResult.count > 0) {
+      transformations.push(`numbers:${numResult.count}`);
+    }
+
+    // 6. Collapse multiple spaces
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+
+    // 7. Truncate to MAX_LENGTH
+    if (normalized.length > ErrorSignatureNormalizer.MAX_LENGTH) {
+      normalized = normalized.substring(0, ErrorSignatureNormalizer.MAX_LENGTH);
+      transformations.push('truncated');
+    }
+
+    // 8. Generate hash
+    const hash = this.generateHash(normalized);
+
+    return {
+      original,
+      normalized,
+      hash,
+      transformations,
+    };
+  }
+
+  /**
+   * Generate stable SHA-256 hash (first 16 chars).
+   *
+   * @param normalizedText - Normalized text to hash
+   * @returns 16-character hex string
+   */
+  generateHash(normalizedText: string): string {
+    return generateStableHash(normalizedText);
+  }
+
+  /**
+   * Replace Windows paths with <path>.
+   *
+   * @param text - Text to process
+   * @returns Object with processed text and count of replacements
+   */
+  removeWindowsPaths(text: string): { text: string; count: number } {
+    const pattern = NORMALIZATION_PATTERNS.windowsPath;
+    const matches = text.match(pattern) || [];
+    const normalized = text.replace(pattern, '<path>');
+    return { text: normalized, count: matches.length };
+  }
+
+  /**
+   * Replace Unix paths with <path>.
+   *
+   * @param text - Text to process
+   * @returns Object with processed text and count of replacements
+   */
+  removeUnixPaths(text: string): { text: string; count: number } {
+    const pattern = NORMALIZATION_PATTERNS.unixPath;
+    const matches = text.match(pattern) || [];
+    const normalized = text.replace(pattern, '<path>');
+    return { text: normalized, count: matches.length };
+  }
+
+  /**
+   * Replace hex values with <hex>.
+   *
+   * @param text - Text to process
+   * @returns Object with processed text and count of replacements
+   */
+  removeHexValues(text: string): { text: string; count: number } {
+    const pattern = NORMALIZATION_PATTERNS.hexValue;
+    const matches = text.match(pattern) || [];
+    const normalized = text.replace(pattern, '<hex>');
+    return { text: normalized, count: matches.length };
+  }
+
+  /**
+   * Replace standalone numbers with <n>.
+   *
+   * @param text - Text to process
+   * @returns Object with processed text and count of replacements
+   */
+  removeNumbers(text: string): { text: string; count: number } {
+    const pattern = NORMALIZATION_PATTERNS.number;
+    const matches = text.match(pattern) || [];
+    const normalized = text.replace(pattern, '<n>');
+    return { text: normalized, count: matches.length };
+  }
 }
 
 /**
@@ -289,8 +459,9 @@ export class SignalExtractor {
   }
 }
 
-// Export singleton instance for convenience
+// Export singleton instances for convenience
 export const signalExtractor = new SignalExtractor();
+export const errorSignatureNormalizer = new ErrorSignatureNormalizer();
 
 // Default export
 export default SignalExtractor;
