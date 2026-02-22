@@ -2,7 +2,7 @@
 
 > **EPIC_ID:** E-001-AEP-Protocol
 > **Story:** STORY-004
-> **Status:** pending
+> **Status:** done
 > **Beads 任务ID:** agent network-sdq
 > **依赖:** [TASK-E-001-FB-001, TASK-E-001-FB-002]
 
@@ -12,17 +12,47 @@ Implement the `/v1/feedback` endpoint that receives feedback submissions, valida
 
 ## 验收标准
 
-- [ ] AC-FB-API-001: Endpoint accepts POST requests at `/v1/feedback`
-- [ ] AC-FB-API-002: Validates AEP envelope format
-- [ ] AC-FB-API-003: Authenticates agent via Authorization header
-- [ ] AC-FB-API-004: Validates experience_id exists
-- [ ] AC-FB-API-005: Validates outcome is one of: success, failure, partial
-- [ ] AC-FB-API-006: Returns reward_earned for feedback submitter
-- [ ] AC-FB-API-007: Returns updated_stats (total_uses, success_streak, gdi_score)
-- [ ] AC-FB-API-008: Returns previous_status and new_status if changed
-- [ ] AC-FB-API-009: Returns 404 for non-existent experience_id
-- [ ] AC-FB-API-010: Returns 409 for duplicate feedback
-- [ ] AC-FB-API-011: Feedback latency < 100ms (p95)
+- [x] AC-FB-API-001: Endpoint accepts POST requests at `/v1/feedback`
+- [x] AC-FB-API-002: Validates AEP envelope format
+- [x] AC-FB-API-003: Authenticates agent via Authorization header
+- [x] AC-FB-API-004: Validates experience_id exists
+- [x] AC-FB-API-005: Validates outcome is one of: success, failure, partial
+- [x] AC-FB-API-006: Returns reward_earned for feedback submitter
+- [x] AC-FB-API-007: Returns updated_stats (total_uses, success_streak, gdi_score)
+- [x] AC-FB-API-008: Returns previous_status and new_status if changed
+- [x] AC-FB-API-009: Returns 404 for non-existent experience_id
+- [x] AC-FB-API-010: Returns 409 for duplicate feedback
+- [x] AC-FB-API-011: Feedback latency < 100ms (p95)
+
+## 实现记录
+
+### 文件位置
+- **路由实现**: `aep-hub/src/routes/feedback.ts`
+- **类型定义**: `aep-hub/src/types/feedback.ts`
+- **验证逻辑**: `aep-hub/src/utils/feedbackValidation.ts`
+- **数据库仓库**: `aep-hub/src/db/feedbackRepository.ts`
+- **GDI 更新服务**: `aep-hub/src/services/gdiUpdateService.ts`
+- **E2E 测试**: `aep-hub/tests/feedback.e2e.test.ts`
+- **验证测试**: `aep-hub/tests/feedbackValidation.test.ts`
+
+### 实现说明
+1. **端点挂载**: `/v1/feedback` 在 `aep-hub/src/index.ts` 中注册
+2. **认证方式**: 通过 `X-Agent-Id` header 或 `Authorization: Bearer` 进行认证
+3. **验证流程**:
+   - AEP envelope 验证 (protocol, version, type, sender, timestamp)
+   - Payload 验证 (experience_id, outcome, score 范围 0.0-1.0)
+4. **GDI 更新**: 提交 feedback 后自动触发 GDI 重新计算和状态检查
+5. **奖励计算**: 基础奖励 10 分，可叠加首次反馈、成功结果、promoted 状态、详细笔记等加成
+
+### 测试覆盖
+- ✅ 成功提交 feedback (201)
+- ✅ 拒绝不存在的 experience_id (404)
+- ✅ 拒绝重复 feedback (409)
+- ✅ 拒绝未授权请求 (401)
+- ✅ 拒绝无效 outcome 值 (400)
+- ✅ 拒绝无效 score 范围 (400)
+- ✅ 验证 success_streak 更新
+- ✅ 验证 consecutive_failures 更新
 
 ## 接口定义
 
