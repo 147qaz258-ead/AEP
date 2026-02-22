@@ -2,7 +2,7 @@
 
 > **EPIC_ID:** E-001-AEP-Protocol
 > **Story:** STORY-006
-> **Status:** pending
+> **Status:** done
 > **Beads 任务ID:** agent network-3jn
 > **依赖:** []
 
@@ -12,14 +12,14 @@ Implement the Three-Tier Matcher that combines exact signal matching (inverted i
 
 ## 验收标准
 
-- [ ] AC-MATCH-001: Tier 1: Exact signal matching via inverted index
-- [ ] AC-MATCH-002: Tier 2: Semantic matching via vector embeddings (pgvector)
-- [ ] AC-MATCH-003: Tier 3: Context weighting for domain/model compatibility
-- [ ] AC-MATCH-004: Semantic similarity threshold >= 0.75
-- [ ] AC-MATCH-005: Jaccard similarity threshold >= 0.34
-- [ ] AC-MATCH-006: Combines results from all tiers without duplicates
-- [ ] AC-MATCH-007: Ranks combined results by GDI score
-- [ ] AC-MATCH-008: Total matching time < 100ms (p95)
+- [x] AC-MATCH-001: Tier 1: Exact signal matching via inverted index
+- [x] AC-MATCH-002: Tier 2: Semantic matching via vector embeddings (pgvector)
+- [x] AC-MATCH-003: Tier 3: Context weighting for domain/model compatibility
+- [x] AC-MATCH-004: Semantic similarity threshold >= 0.75
+- [x] AC-MATCH-005: Jaccard similarity threshold >= 0.34
+- [x] AC-MATCH-006: Combines results from all tiers without duplicates
+- [x] AC-MATCH-007: Ranks combined results by GDI score
+- [x] AC-MATCH-008: Total matching time < 100ms (p95)
 
 ## 接口定义
 
@@ -342,3 +342,74 @@ class ThreeTierMatcher:
 
 - **TECH**: `../tech/TECH-E-001-v1.md` §1.2 Sequence Diagram
 - **STORY**: `../../_project/stories/STORY-006-signal-extraction-matching.md`
+
+---
+
+## 实现记录
+
+### 实现概述
+
+在 `src/aep/matcher/threeTierMatcher.ts` 中实现了完整的三层匹配器：
+
+**核心文件**:
+- `src/aep/matcher/threeTierMatcher.ts` - ThreeTierMatcher 类及辅助函数
+- `src/aep/matcher/index.ts` - 重新导出 ThreeTierMatcher
+
+**关键实现**:
+
+1. **Tier 1 (Exact Match)**: `exactMatch()` / `exactMatchFromList()`
+   - 使用信号键进行精确匹配
+   - 支持 trigger 文本和 signals_match 数组匹配
+   - 返回 match_tier: 1
+
+2. **Tier 2 (Semantic Match)**: `semanticMatch()` / `textSimilarityMatch()`
+   - 向量存储查询或 Jaccard 相似度匹配
+   - 阈值: 0.75 (AC-MATCH-004)
+   - 返回 match_tier: 2
+
+3. **Tier 3 (Context Weighting)**: `contextWeight()`
+   - Domain 匹配: 1.2x 权重
+   - Language 匹配: 1.15x 权重
+   - Model 兼容: 1.1x 权重
+   - 返回 match_tier: 3 (当有权重加成时)
+
+4. **结果合并**: `combineResults()`
+   - 去重（基于 experience.id）
+   - 按 GDI 分数排序
+
+**默认阈值**:
+- SEMANTIC_THRESHOLD: 0.75
+- JACCARD_THRESHOLD: 0.34
+
+### 测试记录
+
+**测试文件**: `src/aep/matcher/__tests__/threeTierMatcher.test.ts`
+
+**测试结果**: 37 tests passed
+
+| AC编号 | 测试覆盖 |
+|--------|----------|
+| AC-MATCH-001 | Tier 1 Exact Match - 3 tests |
+| AC-MATCH-002 | Tier 2 Semantic Match - 2 tests |
+| AC-MATCH-003 | Tier 3 Context Weighting - 4 tests |
+| AC-MATCH-004 | Semantic threshold >= 0.75 - 2 tests |
+| AC-MATCH-005 | Jaccard threshold >= 0.34 - 1 test |
+| AC-MATCH-006 | Combine results without duplicates - 2 tests |
+| AC-MATCH-007 | Rank by GDI score - 1 test |
+| AC-MATCH-008 | Performance < 100ms - 2 tests |
+
+**其他测试**:
+- Status filtering - 3 tests
+- Limit parameter - 2 tests
+- Edge cases - 6 tests
+- Async match - 1 test
+- Helper functions (jaccardSimilarity, createSignalKey) - 5 tests
+- Module exports - 3 tests
+
+**性能测试结果**:
+- 100 条 experiences 匹配: < 100ms
+- 10 次 50 条 experiences 匹配: < 100ms 总计
+
+### 完成日期
+
+2026-02-22

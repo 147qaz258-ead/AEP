@@ -624,5 +624,18 @@ export class InMemoryExperienceStore implements ExperienceStore {
 // Export singleton instance for convenience (with null stores)
 export const experienceMatcher = new ExperienceMatcher();
 
+// Re-export Three-Tier Matcher
+export {
+  ThreeTierMatcher,
+  threeTierMatcher,
+  jaccardSimilarity,
+  createSignalKey,
+  type ThreeTierMatchRequest,
+  type ThreeTierMatchResult,
+  type MatchContext,
+  type ThreeTierMatcherOptions,
+  type ExperienceWithContext,
+} from './threeTierMatcher';
+
 // Default export
 export default ExperienceMatcher;
