@@ -494,3 +494,165 @@ describe('computeBlastSafety', () => {
     expect(safety).toBe(0);
   });
 });
+
+describe('AC-AGG-005: Initial GDI calculation', () => {
+  let calculator: GDICalculator;
+
+  beforeEach(() => {
+    calculator = new GDICalculator();
+  });
+
+  it('should compute initial GDI as 0.5 * confidence', () => {
+    // confidence = 1.0 -> initial GDI = 0.50
+    expect(calculator.computeInitialGDI(1.0)).toBe(0.5);
+
+    // confidence = 0.8 -> initial GDI = 0.40
+    expect(calculator.computeInitialGDI(0.8)).toBe(0.4);
+
+    // confidence = 0.5 -> initial GDI = 0.25
+    expect(calculator.computeInitialGDI(0.5)).toBe(0.25);
+  });
+
+  it('should return 0 for zero confidence', () => {
+    expect(calculator.computeInitialGDI(0)).toBe(0);
+  });
+
+  it('should round to 4 decimal places', () => {
+    const result = calculator.computeInitialGDI(0.85);
+    expect(result).toBe(0.425);
+
+    const result2 = calculator.computeInitialGDI(0.3333);
+    expect(result2).toBeCloseTo(0.1667, 4);
+  });
+});
+
+describe('AC-AGG-002: Dimension validation', () => {
+  let calculator: GDICalculator;
+
+  beforeEach(() => {
+    calculator = new GDICalculator();
+  });
+
+  it('should return true for valid dimensions in [0, 1]', () => {
+    expect(calculator.validateDimensions({
+      quality: 0.5,
+      usage: 0.5,
+      social: 0.5,
+      freshness: 0.5,
+      confidence: 0.5,
+    })).toBe(true);
+  });
+
+  it('should return true for boundary values (0 and 1)', () => {
+    expect(calculator.validateDimensions({
+      quality: 0,
+      usage: 1,
+      social: 0,
+      freshness: 1,
+      confidence: 0,
+    })).toBe(true);
+  });
+
+  it('should return false for negative values', () => {
+    expect(calculator.validateDimensions({
+      quality: -0.1,
+      usage: 0.5,
+      social: 0.5,
+      freshness: 0.5,
+      confidence: 0.5,
+    })).toBe(false);
+  });
+
+  it('should return false for values greater than 1', () => {
+    expect(calculator.validateDimensions({
+      quality: 1.1,
+      usage: 0.5,
+      social: 0.5,
+      freshness: 0.5,
+      confidence: 0.5,
+    })).toBe(false);
+  });
+});
+
+describe('AC-AGG-007: Configurable weights', () => {
+  it('should use default weights when no custom weights provided', () => {
+    const calculator = new GDICalculator();
+    const weights = calculator.getWeights();
+
+    expect(weights.quality).toBe(0.35);
+    expect(weights.usage).toBe(0.25);
+    expect(weights.social).toBe(0.15);
+    expect(weights.freshness).toBe(0.15);
+    expect(weights.confidence).toBe(0.10);
+  });
+
+  it('should accept custom weights via constructor', () => {
+    const calculator = new GDICalculator({
+      quality: 0.40,
+      usage: 0.20,
+      social: 0.15,
+      freshness: 0.15,
+      confidence: 0.10,
+    });
+
+    const weights = calculator.getWeights();
+    expect(weights.quality).toBe(0.40);
+    expect(weights.usage).toBe(0.20);
+  });
+
+  it('should allow partial weight updates that still sum to 1.0', () => {
+    const calculator = new GDICalculator({
+      quality: 0.40, // Override quality (increase by 0.05)
+      usage: 0.20,   // Override usage (decrease by 0.05)
+      // Others remain at defaults
+    });
+
+    const weights = calculator.getWeights();
+    expect(weights.quality).toBe(0.40);
+    expect(weights.usage).toBe(0.20);
+    expect(weights.social).toBe(0.15);
+    expect(weights.freshness).toBe(0.15);
+    expect(weights.confidence).toBe(0.10);
+  });
+
+  it('should throw error for partial weights that do not sum to 1.0', () => {
+    expect(() => {
+      new GDICalculator({
+        quality: 0.50, // Only override quality, sum becomes 1.15
+      });
+    }).toThrow('Weights must sum to 1.0');
+  });
+
+  it('should throw error if weights do not sum to 1.0', () => {
+    expect(() => {
+      new GDICalculator({
+        quality: 0.50,
+        usage: 0.50,
+        // Missing other weights, sum > 1.0
+      });
+    }).toThrow('Weights must sum to 1.0');
+  });
+
+  it('should allow updating weights after construction', () => {
+    const calculator = new GDICalculator();
+
+    calculator.updateWeights({
+      quality: 0.30,
+      usage: 0.30,
+    });
+
+    const weights = calculator.getWeights();
+    expect(weights.quality).toBe(0.30);
+    expect(weights.usage).toBe(0.30);
+  });
+
+  it('should throw error when updating weights to invalid sum', () => {
+    const calculator = new GDICalculator();
+
+    expect(() => {
+      calculator.updateWeights({
+        quality: 0.80, // This would make sum > 1.0
+      });
+    }).toThrow('Weights must sum to 1.0');
+  });
+});

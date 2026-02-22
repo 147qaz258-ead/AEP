@@ -52,15 +52,25 @@ export interface GDIResult {
 }
 
 /**
- * Weights for each dimension in the GDI formula
+ * Default weights for each dimension in the GDI formula
  */
-const WEIGHTS = {
+const DEFAULT_WEIGHTS = {
   quality: 0.35,
   usage: 0.25,
   social: 0.15,
   freshness: 0.15,
   confidence: 0.10,
 } as const;
+
+/**
+ * Weights type for configuration
+ */
+export type GDIWeights = typeof DEFAULT_WEIGHTS;
+
+/**
+ * Legacy export for backward compatibility
+ */
+const WEIGHTS = DEFAULT_WEIGHTS;
 
 /**
  * Constants for blast radius safety calculation
@@ -137,6 +147,50 @@ export function computeBlastSafety(blastRadius: BlastRadius): number {
 export class GDICalculator {
   private maxUsesByCategory: Map<string, number> = new Map();
   private globalMaxUses: number = 100; // Default max uses
+  private weights: GDIWeights;
+
+  /**
+   * Creates a new GDI Calculator with optional custom weights.
+   *
+   * @param customWeights - Optional custom weights (must sum to 1.0)
+   * @throws Error if weights do not sum to 1.0
+   */
+  constructor(customWeights?: Partial<GDIWeights>) {
+    this.weights = { ...DEFAULT_WEIGHTS, ...customWeights };
+    this.validateWeights();
+  }
+
+  /**
+   * Validates that weights sum to approximately 1.0.
+   *
+   * @throws Error if weights do not sum to 1.0
+   */
+  private validateWeights(): void {
+    const total = Object.values(this.weights).reduce((sum, w) => sum + w, 0);
+    if (Math.abs(total - 1.0) > 0.001) {
+      throw new Error(`Weights must sum to 1.0, got ${total}`);
+    }
+  }
+
+  /**
+   * Gets the current weights configuration.
+   *
+   * @returns Copy of current weights
+   */
+  getWeights(): GDIWeights {
+    return { ...this.weights };
+  }
+
+  /**
+   * Updates weights configuration.
+   *
+   * @param newWeights - Partial weights to update
+   * @throws Error if resulting weights do not sum to 1.0
+   */
+  updateWeights(newWeights: Partial<GDIWeights>): void {
+    this.weights = { ...this.weights, ...newWeights };
+    this.validateWeights();
+  }
 
   /**
    * Sets the maximum uses for a category (for usage normalization).
@@ -278,11 +332,11 @@ export class GDICalculator {
     const safeConfidence = Math.max(dimensions.confidence, epsilon);
 
     const gdi =
-      Math.pow(safeQuality, WEIGHTS.quality) *
-      Math.pow(safeUsage, WEIGHTS.usage) *
-      Math.pow(safeSocial, WEIGHTS.social) *
-      Math.pow(safeFreshness, WEIGHTS.freshness) *
-      Math.pow(safeConfidence, WEIGHTS.confidence);
+      Math.pow(safeQuality, this.weights.quality) *
+      Math.pow(safeUsage, this.weights.usage) *
+      Math.pow(safeSocial, this.weights.social) *
+      Math.pow(safeFreshness, this.weights.freshness) *
+      Math.pow(safeConfidence, this.weights.confidence);
 
     // Ensure range [0, 1]
     const clampedGDI = Math.max(0.0, Math.min(1.0, gdi));
@@ -292,6 +346,52 @@ export class GDICalculator {
       dimensions,
       calculated_at: new Date(),
     };
+  }
+
+  /**
+   * Validates that all dimension values are in the valid range [0, 1].
+   *
+   * @param dimensions - Dimensions to validate
+   * @returns true if all dimensions are valid, false otherwise
+   */
+  validateDimensions(dimensions: GDIDimensions): boolean {
+    const dimensionEntries: [string, number][] = [
+      ['quality', dimensions.quality],
+      ['usage', dimensions.usage],
+      ['social', dimensions.social],
+      ['freshness', dimensions.freshness],
+      ['confidence', dimensions.confidence],
+    ];
+
+    for (const [name, value] of dimensionEntries) {
+      if (value < 0.0 || value > 1.0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Computes the initial GDI for a newly published experience.
+   *
+   * Initial GDI = 0.5 * confidence
+   *
+   * This provides a conservative starting point that:
+   * - Uses publisher's confidence as a baseline
+   * - Scales down to avoid over-ranking unvalidated experiences
+   * - Awaits community feedback for true GDI calculation
+   *
+   * @param confidence - Publisher's confidence in the experience
+   * @returns Initial GDI score rounded to 4 decimal places
+   *
+   * @example
+   * // confidence = 1.0 -> initial GDI = 0.50
+   * // confidence = 0.8 -> initial GDI = 0.40
+   * // confidence = 0.5 -> initial GDI = 0.25
+   */
+  computeInitialGDI(confidence: number): number {
+    const initialGDI = 0.5 * confidence;
+    return Math.round(initialGDI * 10000) / 10000;
   }
 }
 
