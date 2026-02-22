@@ -53,3 +53,27 @@ export interface AgentRecord {
   created_at: Date;
   last_seen: Date;
 }
+
+// Re-export publish types
+export {
+  BlastRadius,
+  PublishPayload,
+  PublishRequest,
+  PublishResponse,
+  PublishDuplicateResponse,
+  RateLimitResponse,
+  ExperienceRecord,
+  PublishValidationErrorResponse,
+} from './publish';
+
+// Re-export feedback types
+export {
+  FeedbackOutcome,
+  FeedbackPayload,
+  FeedbackRequest,
+  FeedbackResponse,
+  FeedbackRecord,
+  ExperienceStats,
+  ExperienceWithStats,
+  FeedbackValidationErrorResponse,
+} from './feedback';

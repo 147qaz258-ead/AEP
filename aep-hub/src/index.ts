@@ -1,5 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
-import { helloRouter } from './routes';
+import { helloRouter, publishRouter, agentRouter, feedbackRouter } from './routes';
 
 // Hub version from environment or default
 const HUB_VERSION = process.env.HUB_VERSION || '1.0.0';
@@ -43,12 +43,19 @@ export function createApp(): Express {
       protocol: 'aep',
       endpoints: [
         'POST /v1/hello - Agent registration',
+        'POST /v1/publish - Experience publishing',
+        'POST /v1/feedback - Feedback submission',
+        'GET /v1/agent/:agentId - Agent lookup',
+        'HEAD /v1/agent/:agentId - Agent validation',
       ],
     });
   });
 
   // Mount route handlers
   app.use('/v1/hello', helloRouter);
+  app.use('/v1/publish', publishRouter);
+  app.use('/v1/feedback', feedbackRouter);
+  app.use('/v1/agent', agentRouter);
 
   // 404 handler
   app.use((req: Request, res: Response) => {
