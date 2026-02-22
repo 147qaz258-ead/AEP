@@ -463,5 +463,20 @@ export class SignalExtractor {
 export const signalExtractor = new SignalExtractor();
 export const errorSignatureNormalizer = new ErrorSignatureNormalizer();
 
+// Re-export from index-builder module
+export {
+  SignalIndexBuilder,
+  SignalIndexQuerier,
+  makeSignalKey,
+  makeSignalKeyFromString,
+  createSignalIndexBuilder,
+  createSignalIndexQuerier,
+  signalIndexBuilder,
+  signalIndexQuerier,
+  type IndexEntry,
+  type IndexableExperience,
+  type IndexStats,
+} from './index-builder';
+
 // Default export
 export default SignalExtractor;
