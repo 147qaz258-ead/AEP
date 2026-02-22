@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AEP Protocol - Gene/Capsule Visualizer</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --ok: #2ea043;
+      --warning: #d29922;
+      --purple: #a371f7;
+      --border: rgba(240, 246, 252, 0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: radial-gradient(1400px 900px at 15% 15%, rgba(163, 113, 247, 0.15), transparent 60%),
+                  radial-gradient(1200px 800px at 85% 25%, rgba(88, 166, 255, 0.10), transparent 65%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--purple), #8957e5);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      color: #fff;
+    }
+    .logo-text h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .logo-text p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--muted);
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .view-switch {
+      display: flex;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .view-btn {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .view-btn.active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    /* Gene Visual */
+    .gene-card {
+      background: linear-gradient(135deg, rgba(163, 113, 247, 0.1), rgba(163, 113, 247, 0.05));
+      border: 1px solid rgba(163, 113, 247, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .gene-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .gene-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--purple), #8957e5);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .gene-title {
+      flex: 1;
+    }
+    .gene-title h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--purple);
+    }
+    .gene-title span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .gene-badge {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(163, 113, 247, 0.2);
+      color: var(--purple);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .gene-strategy {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+    .gene-strategy h4 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .strategy-step {
+      font-size: 12px;
+      padding: 4px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+    .strategy-step::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--purple);
+    }
+    /* Capsule Cards */
+    .capsule-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .capsule-card {
+      background: linear-gradient(135deg, rgba(46, 160, 67, 0.1), rgba(46, 160, 67, 0.05));
+      border: 1px solid rgba(46, 160, 67, 0.3);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .capsule-card:hover {
+      background: linear-gradient(135deg, rgba(46, 160, 67, 0.15), rgba(46, 160, 67, 0.08));
+      transform: translateX(4px);
+    }
+    .capsule-card.selected {
+      border-color: var(--ok);
+      box-shadow: 0 0 0 2px rgba(46, 160, 67, 0.2);
+    }
+    .capsule-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .capsule-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--ok);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    .capsule-title {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ok);
+    }
+    .capsule-streak {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(46, 160, 67, 0.2);
+      color: var(--ok);
+    }
+    .capsule-context {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .capsule-solution {
+      font-size: 12px;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    /* Detail Panel */
+    .detail-section {
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .detail-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .detail-value {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .detail-code {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+    .signal-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .signal-item {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+    }
+    /* Evolution Flow */
+    .evolution-flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+    }
+    .flow-step {
+      flex: 1;
+      text-align: center;
+    }
+    .flow-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+      font-size: 14px;
+    }
+    .flow-gene { background: rgba(163, 113, 247, 0.2); color: var(--purple); }
+    .flow-capsule { background: rgba(46, 160, 67, 0.2); color: var(--ok); }
+    .flow-event { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
+    .flow-arrow {
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .flow-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .flow-value {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat-box {
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+    }
+    .nav-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+    }
+    .nav-link:hover { text-decoration: underline; }
+    @media (max-width: 1000px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">DNA</div>
+        <div class="logo-text">
+          <h1>Gene/Capsule Visualizer</h1>
+          <p>AEP Protocol v1.0 - Experience Evolution Visualization</p>
+        </div>
+      </div>
+      <div class="nav-buttons">
+        <div class="view-switch">
+          <button class="view-btn active" data-view="tree">Tree View</button>
+          <button class="view-btn" data-view="list">List View</button>
+        </div>
+        <a href="agent-integration.html" class="nav-link" style="display: flex; align-items: center;">Agent View</a>
+        <a href="hub-explorer.html" class="nav-link" style="display: flex; align-items: center;">Hub Explorer</a>
+      </div>
+    </div>
+
+    <!-- Evolution Flow Diagram -->
+    <div class="card" style="margin-bottom: 16px;">
+      <h2>
+        <span>AEP Evolution Flow</span>
+        <span style="font-size: 11px; color: var(--muted); font-weight: normal;">Gene → Capsule → EvolutionEvent</span>
+      </h2>
+      <div class="evolution-flow">
+        <div class="flow-step">
+          <div class="flow-icon flow-gene">G</div>
+          <div class="flow-label">Strategy</div>
+          <div class="flow-value">Gene</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-icon flow-capsule">C</div>
+          <div class="flow-label">Solution</div>
+          <div class="flow-value">Capsule</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-icon flow-event">E</div>
+          <div class="flow-label">Validation</div>
+          <div class="flow-value">EvolutionEvent</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-icon" style="background: rgba(46, 160, 67, 0.2); color: var(--ok);">✓</div>
+          <div class="flow-label">Promotion</div>
+          <div class="flow-value">GEP Score</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <!-- Left: Gene Tree -->
+      <div class="card">
+        <h2>
+          <span>Gene Library</span>
+          <span id="geneCount" style="font-size: 11px; color: var(--muted); font-weight: normal;">0 genes</span>
+        </h2>
+        <div id="geneList"></div>
+      </div>
+
+      <!-- Right: Details -->
+      <div class="card" id="detailPanel">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <p>Select a Gene or Capsule to view details</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top: 24px; text-align: center; font-size: 12px; color: var(--muted);">
+      <p>AEP Protocol v1.0 - Gene/Capsule Separation for Reusable Experience Evolution</p>
+      <p style="margin-top: 4px;">Gene = Strategy Template | Capsule = Verified Solution | EvolutionEvent = Validation Record</p>
+    </div>
+  </div>
+
+  <script>
+    // Mock Gene Database
+    const genes = [
+      {
+        id: 'gene_repair_connection_timeout',
+        category: 'repair',
+        signals_match: ['timeout', 'connection.*timeout', '/ECONN.*/i', '网络超时'],
+        strategy: [
+          '识别超时发生的位置（客户端/服务端/网络）',
+          '检查连接池配置（max_connections, timeout）',
+          '检查网络状况和延迟',
+          '应用最小化补丁',
+          '验证修复效果'
+        ],
+        constraints: {
+          max_files: 5,
+          max_lines: 200,
+          forbidden_paths: ['.env', 'credentials', 'secrets']
+        },
+        metadata: {
+          created_at: '2026-02-10T10:00:00Z',
+          usage_count: 156,
+          success_rate: 0.87
+        },
+        capsules: [
+          {
+            id: 'capsule_pg_pool_timeout_fix',
+            trigger: ['errsig:Connection terminated unexpectedly', 'log_error', 'postgresql'],
+            context: { database: 'postgresql', library: 'pg', node_version: '>=16' },
+            solution: 'const pool = new Pool({ connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000 });',
+            summary: 'PostgreSQL connection pool timeout configuration',
+            confidence: 0.92,
+            blast_radius: { files: 1, lines: 15 },
+            outcome: { status: 'success', score: 0.92, validated_at: '2026-02-21T10:30:00Z' },
+            success_streak: 8,
+            total_uses: 42,
+            total_success: 38,
+            a2a: { status: 'promoted', eligible_to_broadcast: true }
+          },
+          {
+            id: 'capsule_mysql_timeout_fix',
+            trigger: ['errsig:Handshake timeout', 'mysql', 'connection'],
+            context: { database: 'mysql', library: 'mysql2', node_version: '>=14' },
+            solution: 'await mysql.createConnection({ connectTimeout: 10000, acquireTimeout: 10000 });',
+            summary: 'MySQL connection timeout configuration',
+            confidence: 0.88,
+            blast_radius: { files: 1, lines: 12 },
+            outcome: { status: 'success', score: 0.88, validated_at: '2026-02-20T14:15:00Z' },
+            success_streak: 5,
+            total_uses: 28,
+            total_success: 24,
+            a2a: { status: 'promoted', eligible_to_broadcast: true }
+          },
+          {
+            id: 'capsule_redis_timeout_fix',
+            trigger: ['Redis connection timeout', 'redis'],
+            context: { database: 'redis', library: 'ioredis' },
+            solution: 'new Redis({ connectTimeout: 10000, lazyConnect: true });',
+            summary: 'Redis connection timeout configuration',
+            confidence: 0.75,
+            blast_radius: { files: 1, lines: 10 },
+            outcome: { status: 'candidate', score: 0.75, validated_at: '2026-02-19T09:00:00Z' },
+            success_streak: 2,
+            total_uses: 8,
+            total_success: 6,
+            a2a: { status: 'candidate' }
+          }
+        ]
+      },
+      {
+        id: 'gene_repair_auth_failure',
+        category: 'repair',
+        signals_match: ['authentication', 'jwt', 'unauthorized', '401', 'token'],
+        strategy: [
+          '检查 token 是否过期（exp claim）',
+          '验证 secret key 配置',
+          '检查 token 签名算法',
+          '验证 issuer 和 audience',
+          '添加 token 刷新机制'
+        ],
+        constraints: {
+          max_files: 3,
+          max_lines: 100
+        },
+        metadata: {
+          created_at: '2026-02-08T14:00:00Z',
+          usage_count: 89,
+          success_rate: 0.82
+        },
+        capsules: [
+          {
+            id: 'capsule_jwt_verify_fix',
+            trigger: ['JWT authentication failed', '401'],
+            context: { library: 'jsonwebtoken', algorithm: 'HS256' },
+            solution: 'jwt.verify(token, secret, { ignoreExpiration: false });',
+            summary: 'JWT token verification with expiration check',
+            confidence: 0.88,
+            blast_radius: { files: 2, lines: 35 },
+            outcome: { status: 'success', score: 0.88, validated_at: '2026-02-20T16:45:00Z' },
+            success_streak: 5,
+            total_uses: 35,
+            total_success: 31,
+            a2a: { status: 'promoted' }
+          }
+        ]
+      },
+      {
+        id: 'gene_repair_async_race',
+        category: 'repair',
+        signals_match: ['async', 'await', 'promise', 'race', 'undefined'],
+        strategy: [
+          '识别缺失的 await 关键字',
+          '检查 Promise 链是否正确',
+          '使用 Promise.all() 并行处理',
+          '添加适当的错误处理',
+          '验证执行顺序'
+        ],
+        constraints: {
+          max_files: 4,
+          max_lines: 80
+        },
+        metadata: {
+          created_at: '2026-02-16T09:00:00Z',
+          usage_count: 24,
+          success_rate: 0.79
+        },
+        capsules: [
+          {
+            id: 'capsule_async_await_fix',
+            trigger: ['async function not awaited', 'race condition'],
+            context: { language: 'javascript', runtime: 'node' },
+            solution: 'const result = await asyncFunction();',
+            summary: 'Proper async/await usage',
+            confidence: 0.87,
+            blast_radius: { files: 2, lines: 20 },
+            outcome: { status: 'candidate', score: 0.87, validated_at: '2026-02-21T09:00:00Z' },
+            success_streak: 2,
+            total_uses: 8,
+            total_success: 6,
+            a2a: { status: 'candidate' }
+          }
+        ]
+      },
+      {
+        id: 'gene_optimize_http_cache',
+        category: 'optimize',
+        signals_match: ['cache', 'http', 'performance', 'repeated', 'api'],
+        strategy: [
+          '分析重复请求模式',
+          '实现 Cache-Control 头',
+          '添加 ETag 支持',
+          '配置客户端缓存策略',
+          '监控缓存命中率'
+        ],
+        constraints: {
+          max_files: 5,
+          max_lines: 120
+        },
+        metadata: {
+          created_at: '2026-02-17T13:00:00Z',
+          usage_count: 12,
+          success_rate: 0.75
+        },
+        capsules: [
+          {
+            id: 'capsule_cache_headers',
+            trigger: ['repeated API calls', 'same resource'],
+            context: { protocol: 'http', framework: 'express' },
+            solution: 'res.set("Cache-Control", "public, max-age=3600"); res.set("ETag", etag);',
+            summary: 'HTTP caching strategy with Cache-Control and ETag',
+            confidence: 0.75,
+            blast_radius: { files: 4, lines: 80 },
+            outcome: { status: 'candidate', score: 0.75, validated_at: '2026-02-20T16:45:00Z' },
+            success_streak: 1,
+            total_uses: 4,
+            total_success: 3,
+            a2a: { status: 'candidate' }
+          }
+        ]
+      },
+      {
+        id: 'gene_innovate_retry_pattern',
+        category: 'innovate',
+        signals_match: ['retry', 'exponential', 'backoff', 'flaky', 'transient'],
+        strategy: [
+          '识别瞬态故障模式',
+          '实现指数退避算法',
+          '添加抖动避免雷鸣羊群',
+          '设置最大重试次数',
+          '记录重试统计'
+        ],
+        constraints: {
+          max_files: 3,
+          max_lines: 60
+        },
+        metadata: {
+          created_at: '2026-02-02T08:00:00Z',
+          usage_count: 45,
+          success_rate: 0.84
+        },
+        capsules: [
+          {
+            id: 'capsule_retry_decorator',
+            trigger: ['flaky external API calls'],
+            context: { language: 'python', pattern: 'decorator' },
+            solution: '@retry(exponential_backoff=True, max_attempts=3, jitter=True)',
+            summary: 'Exponential backoff retry decorator with jitter',
+            confidence: 0.82,
+            blast_radius: { files: 2, lines: 45 },
+            outcome: { status: 'success', score: 0.82, validated_at: '2026-02-18T11:30:00Z' },
+            success_streak: 4,
+            total_uses: 19,
+            total_success: 16,
+            a2a: { status: 'promoted' }
+          }
+        ]
+      }
+    ];
+
+    let selectedGene = null;
+    let selectedCapsule = null;
+
+    // DOM Elements
+    const geneListEl = document.getElementById('geneList');
+    const geneCountEl = document.getElementById('geneCount');
+    const detailPanelEl = document.getElementById('detailPanel');
+
+    // Render gene list
+    function renderGeneList() {
+      geneCountEl.textContent = `${genes.length} genes`;
+
+      geneListEl.innerHTML = genes.map(gene => `
+        <div class="gene-card" data-gene-id="${gene.id}">
+          <div class="gene-header">
+            <div class="gene-icon">🧬</div>
+            <div class="gene-title">
+              <h3>${gene.id}</h3>
+              <span>${gene.category} • ${gene.capsules.length} capsule${gene.capsules.length > 1 ? 's' : ''}</span>
+            </div>
+            <span class="gene-badge">${gene.category}</span>
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <div class="detail-label">Matched Signals</div>
+            <div class="signal-list">
+              ${gene.signals_match.slice(0, 4).map(s => `<span class="signal-item">${s}</span>`).join('')}
+              ${gene.signals_match.length > 4 ? `<span class="signal-item">+${gene.signals_match.length - 4}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="gene-strategy">
+            <h4>Strategy Steps</h4>
+            ${gene.strategy.slice(0, 3).map(step => `<div class="strategy-step">${step}</div>`).join('')}
+            ${gene.strategy.length > 3 ? `<div class="strategy-step" style="color: var(--muted);">+ ${gene.strategy.length - 3} more steps</div>` : ''}
+          </div>
+
+          <div class="capsule-container" style="margin-top: 12px;">
+            ${gene.capsules.map(cap => `
+              <div class="capsule-card" data-gene-id="${gene.id}" data-capsule-id="${cap.id}">
+                <div class="capsule-header">
+                  <div class="capsule-icon">💊</div>
+                  <div class="capsule-title">${cap.id}</div>
+                  <span class="capsule-streak">🔥 ${cap.success_streak}</span>
+                </div>
+                <div class="capsule-context">${cap.summary}</div>
+                <div class="capsule-solution">${cap.solution}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.gene-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.capsule-card')) return;
+          const geneId = card.dataset.geneId;
+          selectedGene = genes.find(g => g.id === geneId);
+          selectedCapsule = null;
+          renderGeneList();
+          renderDetail();
+        });
+      });
+
+      document.querySelectorAll('.capsule-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const geneId = card.dataset.geneId;
+          const capsuleId = card.dataset.capsuleId;
+          selectedGene = genes.find(g => g.id === geneId);
+          selectedCapsule = selectedGene.capsules.find(c => c.id === capsuleId);
+          renderGeneList();
+          renderDetail();
+        });
+      });
+    }
+
+    // Render detail panel
+    function renderDetail() {
+      if (selectedCapsule) {
+        renderCapsuleDetail();
+      } else if (selectedGene) {
+        renderGeneDetail();
+      } else {
+        detailPanelEl.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <p>Select a Gene or Capsule to view details</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderGeneDetail() {
+      const gene = selectedGene;
+      detailPanelEl.innerHTML = `
+        <div style="margin-bottom: 12px;">
+          <span class="gene-badge">${gene.category}</span>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Gene ID</div>
+          <div class="detail-value" style="color: var(--purple); font-weight: 600;">${gene.id}</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-value">${gene.metadata.usage_count}</div>
+            <div class="stat-label">Total Uses</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">${(gene.metadata.success_rate * 100).toFixed(0)}%</div>
+            <div class="stat-label">Success Rate</div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Strategy (Full)</div>
+          <div class="detail-value">
+            ${gene.strategy.map((step, i) => `<div style="padding: 4px 0;"><strong>${i + 1}.</strong> ${step}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Matched Signals</div>
+          <div class="signal-list">
+            ${gene.signals_match.map(s => `<span class="signal-item">${s}</span>`).join('')}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Constraints</div>
+          <div class="detail-code">${JSON.stringify(gene.constraints, null, 2)}</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Derived Capsules (${gene.capsules.length})</div>
+          <div class="capsule-container">
+            ${gene.capsules.map(cap => `
+              <div class="capsule-card" data-capsule-id="${cap.id}">
+                <div class="capsule-header">
+                  <div class="capsule-icon">💊</div>
+                  <div class="capsule-title">${cap.id}</div>
+                </div>
+                <div class="capsule-context">${cap.summary}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      // Re-add capsule click handlers
+      detailPanelEl.querySelectorAll('.capsule-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const capsuleId = card.dataset.capsuleId;
+          selectedCapsule = gene.capsules.find(c => c.id === capsuleId);
+          renderGeneList();
+          renderDetail();
+        });
+      });
+    }
+
+    function renderCapsuleDetail() {
+      const gene = selectedGene;
+      const cap = selectedCapsule;
+      const successRate = (cap.total_success / cap.total_uses * 100).toFixed(1);
+
+      detailPanelEl.innerHTML = `
+        <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <span class="gene-badge">${gene.category}</span>
+          <span class="capsule-streak">${cap.a2a.status}</span>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Capsule ID</div>
+          <div class="detail-value" style="color: var(--ok); font-weight: 600;">${cap.id}</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-value">${cap.success_streak}</div>
+            <div class="stat-label">Success Streak</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">${successRate}%</div>
+            <div class="stat-label">Success Rate</div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Trigger</div>
+          <div class="signal-list">
+            ${cap.trigger.map(t => `<span class="signal-item">${t}</span>`).join('')}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Solution</div>
+          <div class="detail-code">${cap.solution}</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Summary</div>
+          <div class="detail-value">${cap.summary}</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Context</div>
+          <div class="detail-code">${JSON.stringify(cap.context, null, 2)}</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Validation Outcome</div>
+          <div class="detail-value">
+            <div>Status: <strong>${cap.outcome.status}</strong></div>
+            <div>Score: <strong>${cap.outcome.score}</strong></div>
+            <div>Validated: <strong>${new Date(cap.outcome.validated_at).toLocaleDateString()}</strong></div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Blast Radius</div>
+          <div class="detail-value">${cap.blast_radius.files} files, ${cap.blast_radius.lines} lines</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Gene Association</div>
+          <div class="detail-value">
+            <span style="color: var(--purple); cursor: pointer;" onclick="backToGene()">🧬 ${gene.id}</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">Full Protocol JSON</div>
+          <div class="detail-code">${JSON.stringify({ type: 'Capsule', ...cap, gene: gene.id }, null, 2)}</div>
+        </div>
+      `;
+    }
+
+    function backToGene() {
+      selectedCapsule = null;
+      renderGeneList();
+      renderDetail();
+    }
+
+    // View switching (placeholder)
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Initialize
+    renderGeneList();
+  </script>
+</body>
+</html>
