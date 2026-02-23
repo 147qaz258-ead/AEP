@@ -9,12 +9,16 @@ from .client import (
     AEPError,
     AEPConnectionError,
     AEPRegistrationError,
+    AEPFetchError,
+    AEPPublishError,
+    AEPFeedbackError,
 )
 from .identity import (
     AgentIdentityStore,
     get_environment_agent_id,
     ensure_agent_id,
 )
+from .models import BlastRadius, Experience, FeedbackResult, PublishPayload, PublishResult
 
 __version__ = "0.1.0"
 __all__ = [
@@ -24,8 +28,17 @@ __all__ = [
     "AEPError",
     "AEPConnectionError",
     "AEPRegistrationError",
+    "AEPFetchError",
+    "AEPPublishError",
+    "AEPFeedbackError",
     # Identity
     "AgentIdentityStore",
     "get_environment_agent_id",
     "ensure_agent_id",
+    # Models
+    "Experience",
+    "BlastRadius",
+    "PublishPayload",
+    "PublishResult",
+    "FeedbackResult",
 ]

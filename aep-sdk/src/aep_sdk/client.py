@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .identity import AgentIdentityStore, get_environment_agent_id
+from .models import BlastRadius, Experience, FeedbackResult, PublishPayload, PublishResult
 
 
 class AEPError(Exception):
@@ -29,6 +30,24 @@ class AEPConnectionError(AEPError):
 
 class AEPRegistrationError(AEPError):
     """Raised when agent registration fails."""
+
+    pass
+
+
+class AEPFetchError(AEPError):
+    """Raised when fetch operation fails."""
+
+    pass
+
+
+class AEPPublishError(AEPError):
+    """Raised when publish operation fails."""
+
+    pass
+
+
+class AEPFeedbackError(AEPError):
+    """Raised when feedback operation fails."""
 
     pass
 
@@ -358,6 +377,345 @@ class AEPClient:
                 raise AEPError(f"Feedback failed: {error_msg} (status {response.status_code})")
 
             return response.json()
+
+        except requests.ConnectionError as e:
+            raise AEPConnectionError(f"Failed to connect to Hub: {e}")
+        except requests.Timeout:
+            raise AEPConnectionError(f"Connection timed out after {self._timeout}s")
+        except requests.RequestException as e:
+            raise AEPConnectionError(f"Request failed: {e}")
+
+    def fetch(
+        self,
+        signals: List[str],
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[Experience]:
+        """
+        Fetch matching experiences from the Hub based on signals.
+
+        Args:
+            signals: List of signal strings to match (e.g., error types, keywords)
+            limit: Optional maximum number of results to return
+            offset: Optional offset for pagination
+
+        Returns:
+            List of Experience objects matching the signals
+
+        Raises:
+            AEPConnectionError: If connection to Hub fails
+            AEPFetchError: If the fetch operation fails
+
+        Example:
+            # Basic usage
+            experiences = client.fetch(signals=["TypeError", "undefined property"])
+
+            # With pagination
+            experiences = client.fetch(
+                signals=["timeout", "API"],
+                limit=10,
+                offset=0
+            )
+
+            # Access results
+            for exp in experiences:
+                print(exp.id)          # "exp_..."
+                print(exp.trigger)     # "TypeError..."
+                print(exp.solution)    # "Add null check..."
+                print(exp.confidence)  # 0.85
+                print(exp.gdi_score)   # 0.72
+        """
+        payload: Dict[str, Any] = {
+            "agent_id": self.agent_id,
+            "signals": signals,
+        }
+
+        # Add optional pagination parameters
+        if limit is not None:
+            payload["limit"] = limit
+        if offset is not None:
+            payload["offset"] = offset
+
+        try:
+            session = self._get_session()
+            response = session.post(
+                f"{self._hub_url}/v1/fetch",
+                json=payload,
+                timeout=self._timeout,
+            )
+
+            if not response.ok:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", "Unknown error")
+                except Exception:
+                    error_msg = f"HTTP {response.status_code}"
+                raise AEPFetchError(
+                    f"Fetch failed: {error_msg} (status {response.status_code})"
+                )
+
+            # Parse response
+            response_data = response.json()
+            experiences_data = response_data.get("experiences", [])
+
+            # Convert to Experience objects
+            return [Experience.from_dict(exp) for exp in experiences_data]
+
+        except requests.ConnectionError as e:
+            raise AEPConnectionError(f"Failed to connect to Hub: {e}")
+        except requests.Timeout:
+            raise AEPConnectionError(f"Connection timed out after {self._timeout}s")
+        except requests.RequestException as e:
+            raise AEPConnectionError(f"Request failed: {e}")
+
+    def publish(
+        self,
+        trigger: str,
+        solution: str,
+        confidence: float = 0.8,
+        context: Optional[Dict[str, Any]] = None,
+        signals_match: Optional[List[str]] = None,
+        gene: Optional[str] = None,
+        blast_radius: Optional[BlastRadius] = None,
+    ) -> PublishResult:
+        """
+        Publish a new experience to the Hub.
+
+        This method creates and publishes an experience (Gene + Capsule format)
+        to the AEP Hub. The experience can later be matched and retrieved by
+        other agents encountering similar triggers.
+
+        Args:
+            trigger: The trigger pattern (error, issue, or situation) that
+                this experience addresses. Should be descriptive enough for
+                matching (e.g., "TypeError: Cannot read property 'x' of undefined")
+            solution: The solution or fix that worked for this trigger.
+                Should be actionable (e.g., "Add null check before accessing property")
+            confidence: Confidence level for this solution (0.0 to 1.0).
+                Default is 0.8. Higher values indicate more certainty.
+            context: Optional additional context metadata. Can include
+                language, framework, environment info, etc.
+                Example: {"language": "python", "library": "requests"}
+            signals_match: Optional list of signal types that should match
+                this experience. Used for categorization and matching.
+            gene: Optional gene ID if this experience belongs to an
+                existing gene family.
+            blast_radius: Optional blast radius indicating the scope of
+                changes (files affected, lines changed).
+
+        Returns:
+            PublishResult containing:
+                - experience_id: Unique identifier for the published experience
+                - status: Status of the experience ('candidate' or 'promoted')
+                - created_at: ISO 8601 timestamp of creation
+                - duplicate: Whether this was a duplicate of existing experience
+                - message: Human-readable result message
+
+        Raises:
+            AEPConnectionError: If connection to Hub fails
+            AEPPublishError: If the publish operation fails (validation, etc.)
+
+        Example:
+            # Basic usage
+            result = client.publish(
+                trigger="TypeError: Cannot read property 'x' of undefined",
+                solution="Add null check before accessing property",
+                confidence=0.85
+            )
+            print(result.experience_id)  # "exp_..."
+            print(result.status)         # "candidate"
+
+            # With additional context
+            result = client.publish(
+                trigger="TimeoutError in API call",
+                solution="Increase connection timeout to 30s",
+                confidence=0.90,
+                context={"language": "python", "library": "requests"},
+                signals_match=["timeout", "network", "api"]
+            )
+
+            # With blast radius
+            from aep_sdk.models import BlastRadius
+            result = client.publish(
+                trigger="Database connection pool exhausted",
+                solution="Increase max connections in pool config",
+                confidence=0.95,
+                blast_radius=BlastRadius(files=2, lines=15)
+            )
+        """
+        # Build the internal Gene + Capsule payload
+        internal_payload = PublishPayload(
+            trigger=trigger,
+            solution=solution,
+            confidence=confidence,
+            signals_match=signals_match,
+            gene=gene,
+            context=context,
+            blast_radius=blast_radius,
+        )
+
+        # Build the AEP envelope request
+        request_body = {
+            "type": "publish",
+            "sender": self.agent_id,
+            "payload": internal_payload.to_dict(),
+        }
+
+        try:
+            session = self._get_session()
+            response = session.post(
+                f"{self._hub_url}/v1/publish",
+                json=request_body,
+                timeout=self._timeout,
+            )
+
+            if not response.ok:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", "Unknown error")
+                    # Include more details if available
+                    if "message" in error_data:
+                        error_msg = f"{error_msg}: {error_data['message']}"
+                except Exception:
+                    error_msg = f"HTTP {response.status_code}"
+                raise AEPPublishError(
+                    f"Publish failed: {error_msg} (status {response.status_code})"
+                )
+
+            # Parse response and return PublishResult
+            response_data = response.json()
+            return PublishResult.from_dict(response_data)
+
+        except requests.ConnectionError as e:
+            raise AEPConnectionError(f"Failed to connect to Hub: {e}")
+        except requests.Timeout:
+            raise AEPConnectionError(f"Connection timed out after {self._timeout}s")
+        except requests.RequestException as e:
+            raise AEPConnectionError(f"Request failed: {e}")
+
+    def feedback(
+        self,
+        experience_id: str,
+        outcome: str,
+        score: Optional[float] = None,
+        notes: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> FeedbackResult:
+        """
+        Submit feedback for an experience to the Hub.
+
+        This method allows agents to report the outcome of using an experience,
+        which helps improve the GDI (Good Distribution Index) and status of
+        the experience in the network.
+
+        Args:
+            experience_id: The unique identifier of the experience to provide
+                feedback for (e.g., "exp_abc123")
+            outcome: The result of using the experience. Must be one of:
+                - "success": The experience solved the problem
+                - "failure": The experience did not work
+                - "partial": The experience partially helped
+            score: Optional score (0.0 to 1.0) indicating how effective the
+                experience was. Higher is better.
+            notes: Optional notes about the feedback, especially useful for
+                failures to explain what went wrong.
+            context: Optional additional context metadata about the feedback.
+                Example: {"error": "Still failing after patch", "attempts": 3}
+
+        Returns:
+            FeedbackResult containing:
+                - status: Always "recorded" on success
+                - feedback_id: Unique identifier for the submitted feedback
+                - reward_earned: Reward points earned for this feedback
+                - updated_stats: Updated statistics for the experience
+                - previous_status: Previous status (candidate/promoted/deprecated)
+                - new_status: New status after feedback
+                - new_gdi_score: Updated GDI score of the experience
+
+        Raises:
+            AEPConnectionError: If connection to Hub fails
+            AEPFeedbackError: If the feedback operation fails (validation, etc.)
+
+        Example:
+            # Success feedback with score
+            result = client.feedback(
+                experience_id="exp_abc123",
+                outcome="success",
+                score=0.9
+            )
+            print(result.status)         # "recorded"
+            print(result.new_gdi_score)  # 0.78
+
+            # Failure feedback with context
+            result = client.feedback(
+                experience_id="exp_abc123",
+                outcome="failure",
+                notes="Still failing after patch",
+                context={"error": "TypeError persists"}
+            )
+            print(result.status)         # "recorded"
+        """
+        # Validate outcome
+        valid_outcomes = ("success", "failure", "partial")
+        if outcome not in valid_outcomes:
+            raise ValueError(
+                f"Invalid outcome '{outcome}'. Must be one of: {valid_outcomes}"
+            )
+
+        # Validate score if provided
+        if score is not None and not (0.0 <= score <= 1.0):
+            raise ValueError(f"Score must be between 0.0 and 1.0, got {score}")
+
+        # Build the feedback payload
+        payload: Dict[str, Any] = {
+            "experience_id": experience_id,
+            "outcome": outcome,
+        }
+        if score is not None:
+            payload["score"] = score
+        if notes is not None:
+            payload["notes"] = notes
+        # Note: context is merged into notes for now since the API doesn't have
+        # a separate context field in the payload
+        if context is not None:
+            # If there are existing notes, append context info
+            context_str = str(context)
+            if notes:
+                payload["notes"] = f"{notes} | Context: {context_str}"
+            else:
+                payload["notes"] = f"Context: {context_str}"
+
+        # Build the AEP envelope request
+        request_body = {
+            "type": "feedback",
+            "sender": self.agent_id,
+            "payload": payload,
+        }
+
+        try:
+            session = self._get_session()
+            response = session.post(
+                f"{self._hub_url}/v1/feedback",
+                json=request_body,
+                timeout=self._timeout,
+            )
+
+            if not response.ok:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", "Unknown error")
+                    # Include more details if available
+                    if "message" in error_data:
+                        error_msg = f"{error_msg}: {error_data['message']}"
+                except Exception:
+                    error_msg = f"HTTP {response.status_code}"
+                raise AEPFeedbackError(
+                    f"Feedback failed: {error_msg} (status {response.status_code})"
+                )
+
+            # Parse response and return FeedbackResult
+            response_data = response.json()
+            return FeedbackResult.from_dict(response_data)
 
         except requests.ConnectionError as e:
             raise AEPConnectionError(f"Failed to connect to Hub: {e}")
