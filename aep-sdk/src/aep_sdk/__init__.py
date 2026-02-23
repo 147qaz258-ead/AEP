@@ -19,6 +19,7 @@ from .identity import (
     ensure_agent_id,
 )
 from .models import BlastRadius, Experience, FeedbackResult, PublishPayload, PublishResult
+from .collectors import LogCollector, LogEntry, LogCollectorConfig
 
 __version__ = "0.1.0"
 __all__ = [
@@ -41,4 +42,8 @@ __all__ = [
     "PublishPayload",
     "PublishResult",
     "FeedbackResult",
+    # Collectors
+    "LogCollector",
+    "LogEntry",
+    "LogCollectorConfig",
 ]
