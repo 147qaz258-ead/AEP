@@ -77,3 +77,13 @@ export {
   ExperienceWithStats,
   FeedbackValidationErrorResponse,
 } from './feedback';
+
+// Re-export fetch types
+export {
+  FetchRequest,
+  FetchPayload,
+  FetchContext,
+  ExperienceSummary,
+  FetchResponse,
+  FetchErrorResponse,
+} from './fetch';
