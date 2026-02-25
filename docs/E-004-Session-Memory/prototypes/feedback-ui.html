@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session Memory - Feedback UI</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --ok: #2ea043;
+      --warning: #d29922;
+      --purple: #a371f7;
+      --border: rgba(240, 246, 252, 0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: radial-gradient(1400px 900px at 85% 15%, rgba(46, 160, 67, 0.12), transparent 60%),
+                  radial-gradient(1200px 800px at 15% 85%, rgba(88, 166, 255, 0.10), transparent 65%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--ok), #238636);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      color: #fff;
+    }
+    .logo-text h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .logo-text p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .nav-links {
+      display: flex;
+      gap: 12px;
+    }
+    .nav-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+    }
+    .nav-link:hover { text-decoration: underline; }
+    .status-switcher {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .status-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .status-btn:hover { background: rgba(255, 255, 255, 0.1); }
+    .status-btn.active { background: var(--ok); border-color: var(--ok); color: #fff; }
+
+    /* Stats */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      padding: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .stat-value.green { color: var(--ok); }
+    .stat-value.red { color: var(--danger); }
+    .stat-value.yellow { color: var(--warning); }
+    .stat-value.blue { color: var(--accent); }
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-trend {
+      font-size: 11px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .stat-trend.up { color: var(--ok); }
+    .stat-trend.down { color: var(--danger); }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .search-box::before {
+      content: "⌕";
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .filter-tags {
+      display: flex;
+      gap: 4px;
+    }
+    .filter-tag {
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-tag:hover { background: rgba(255, 255, 255, 0.1); }
+    .filter-tag.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Action list */
+    .action-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .action-card {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.2s;
+    }
+    .action-card:hover {
+      border-color: var(--muted);
+    }
+    .action-card.feedback-given {
+      border-left: 3px solid var(--ok);
+    }
+    .action-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .action-info {
+      flex: 1;
+    }
+    .action-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+    .action-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .action-meta code {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .action-preview {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding: 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Feedback section */
+    .feedback-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .feedback-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .feedback-btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .feedback-btn:hover { transform: translateY(-1px); }
+    .feedback-btn.success:hover,
+    .feedback-btn.success.selected {
+      background: rgba(46, 160, 67, 0.2);
+      border-color: var(--ok);
+      color: var(--ok);
+    }
+    .feedback-btn.partial:hover,
+    .feedback-btn.partial.selected {
+      background: rgba(210, 153, 34, 0.2);
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+    .feedback-btn.failure:hover,
+    .feedback-btn.failure.selected {
+      background: rgba(248, 81, 73, 0.2);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* Text feedback */
+    .text-feedback {
+      flex: 1;
+      display: none;
+    }
+    .text-feedback.show {
+      display: block;
+    }
+    .text-feedback textarea {
+      width: 100%;
+      min-height: 60px;
+      padding: 10px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .text-feedback textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .submit-feedback {
+      margin-top: 8px;
+      padding: 8px 16px;
+      background: var(--ok);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .submit-feedback:hover {
+      background: #238636;
+    }
+
+    /* Feedback given state */
+    .feedback-result {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .feedback-result.show {
+      display: flex;
+    }
+    .feedback-result.success {
+      background: rgba(46, 160, 67, 0.15);
+      color: var(--ok);
+    }
+    .feedback-result.partial {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--warning);
+    }
+    .feedback-result.failure {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--danger);
+    }
+
+    /* Rating stars */
+    .rating-stars {
+      display: flex;
+      gap: 2px;
+    }
+    .star {
+      font-size: 18px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .star:hover,
+    .star.active {
+      color: var(--warning);
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    /* Badge */
+    .badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-tool { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+    .badge-decision { background: rgba(210, 153, 34, 0.15); color: var(--warning); }
+
+    @media (max-width: 900px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .feedback-section { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">FB</div>
+        <div class="logo-text">
+          <h1>Feedback UI</h1>
+          <p>Collect and rate agent action outcomes</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="session-recorder.html" class="nav-link">Session Recorder</a>
+        <a href="action-log.html" class="nav-link">Action Log</a>
+        <a href="memory-browser.html" class="nav-link">Memory Browser</a>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value green" id="successRate">87%</div>
+        <div class="stat-label">Success Rate</div>
+        <div class="stat-trend up">+5% from last week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value blue" id="avgRating">4.2</div>
+        <div class="stat-label">Average Rating</div>
+        <div class="stat-trend up">+0.3 improvement</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value yellow" id="pendingCount">12</div>
+        <div class="stat-label">Pending Feedback</div>
+        <div class="stat-trend down">3 need attention</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalFeedback">156</div>
+        <div class="stat-label">Total Feedback</div>
+        <div class="stat-trend up">+24 this week</div>
+      </div>
+    </div>
+
+    <!-- Filter & State -->
+    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div class="filter-bar" style="margin-bottom: 0;">
+        <div class="search-box">
+          <input type="text" placeholder="Search actions..." id="searchInput">
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Status</span>
+          <div class="filter-tags">
+            <span class="filter-tag active" data-filter="status" data-value="all">All</span>
+            <span class="filter-tag" data-filter="status" data-value="pending">Pending</span>
+            <span class="filter-tag" data-filter="status" data-value="given">Given</span>
+          </div>
+        </div>
+      </div>
+      <div class="status-switcher">
+        <button class="status-btn active" data-state="normal">Normal</button>
+        <button class="status-btn" data-state="loading">Loading</button>
+        <button class="status-btn" data-state="empty">Empty</button>
+      </div>
+    </div>
+
+    <!-- Action List -->
+    <div class="action-list" id="actionList">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top: 24px; text-align: center; font-size: 12px; color: var(--muted);">
+      <p>Session Memory System v1.0 - Collect feedback to improve agent learning</p>
+    </div>
+  </div>
+
+  <script>
+    // Mock Action Data
+    let actions = [
+      {
+        id: 'act_001',
+        type: 'tool',
+        tool: 'read_file',
+        title: 'Read database configuration',
+        trigger: 'Need to examine database connection configuration',
+        solution: 'Read /config/database.js to find pool settings',
+        result: 'Found connectionTimeoutMillis set to 30000ms',
+        session: 'sess_001',
+        timestamp: '2026-02-23T10:30:15Z',
+        feedback: null,
+        rating: null,
+        comment: null
+      },
+      {
+        id: 'act_002',
+        type: 'decision',
+        title: 'Timeout strategy decision',
+        trigger: 'Pool timeout of 30s is causing production issues',
+        solution: 'Decide to reduce timeout to 5s and add validation',
+        result: 'Strategy: Set connectionTimeoutMillis to 5000',
+        session: 'sess_001',
+        timestamp: '2026-02-23T10:30:45Z',
+        feedback: null,
+        rating: null,
+        comment: null
+      },
+      {
+        id: 'act_003',
+        type: 'tool',
+        tool: 'edit_file',
+        title: 'Apply configuration fix',
+        trigger: 'Apply the configuration fix to database.js',
+        solution: 'Edit /config/database.js, update timeout value',
+        result: 'Successfully updated connectionTimeoutMillis',
+        session: 'sess_001',
+        timestamp: '2026-02-23T10:31:00Z',
+        feedback: 'success',
+        rating: 5,
+        comment: 'Quick and effective fix!'
+      },
+      {
+        id: 'act_004',
+        type: 'tool',
+        tool: 'search_code',
+        title: 'Find JWT verification',
+        trigger: 'Find JWT verification implementation',
+        solution: 'Search for jwt.verify pattern in codebase',
+        result: 'Found verify function in /auth/jwt.js:45',
+        session: 'sess_002',
+        timestamp: '2026-02-23T09:15:30Z',
+        feedback: 'partial',
+        rating: 3,
+        comment: 'Found multiple matches, needed more filtering'
+      },
+      {
+        id: 'act_005',
+        type: 'tool',
+        tool: 'edit_file',
+        title: 'Fix async handler',
+        trigger: 'Fix the async/await issue in handler',
+        solution: 'Add await to async function call',
+        result: 'Edit failed: file locked by another process',
+        session: 'sess_003',
+        timestamp: '2026-02-23T08:45:00Z',
+        feedback: null,
+        rating: null,
+        comment: null
+      },
+      {
+        id: 'act_006',
+        type: 'decision',
+        title: 'Auth strategy selection',
+        trigger: 'Multiple authentication strategies available',
+        solution: 'Choose JWT over session-based auth',
+        result: 'Strategy: Implement JWT with refresh tokens',
+        session: 'sess_004',
+        timestamp: '2026-02-23T08:00:00Z',
+        feedback: null,
+        rating: null,
+        comment: null
+      },
+      {
+        id: 'act_007',
+        type: 'tool',
+        tool: 'run_tests',
+        title: 'Run database tests',
+        trigger: 'Verify the configuration change works',
+        solution: 'Run database connection tests',
+        result: 'Tests passed, new timeout working correctly',
+        session: 'sess_001',
+        timestamp: '2026-02-23T10:31:30Z',
+        feedback: 'success',
+        rating: 4,
+        comment: null
+      }
+    ];
+
+    let filters = { status: 'all' };
+    let currentState = 'normal';
+    let searchQuery = '';
+
+    // Filter actions
+    function filterActions() {
+      return actions.filter(act => {
+        if (filters.status === 'pending' && act.feedback) return false;
+        if (filters.status === 'given' && !act.feedback) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return act.title.toLowerCase().includes(q) ||
+                 act.trigger.toLowerCase().includes(q) ||
+                 act.result.toLowerCase().includes(q);
+        }
+        return true;
+      });
+    }
+
+    // Render action list
+    function renderActionList() {
+      const listEl = document.getElementById('actionList');
+
+      if (currentState === 'empty') {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+            <p>No actions to collect feedback</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (currentState === 'loading') {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <p>Loading actions...</p>
+          </div>
+        `;
+        return;
+      }
+
+      const filtered = filterActions();
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 9h6M9 13h6M9 17h4"/>
+            </svg>
+            <p>No actions match your filters</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(act => `
+        <div class="action-card ${act.feedback ? 'feedback-given' : ''}" data-id="${act.id}">
+          <div class="action-header">
+            <div class="action-info">
+              <div class="action-title">
+                <span class="badge badge-${act.type}">${act.type}</span>
+                ${act.tool ? `<span style="color: var(--muted); font-weight: normal; font-size: 12px; margin-left: 8px;">${act.tool}()</span>` : ''}
+                ${act.title}
+              </div>
+              <div class="action-meta">
+                <span>Session: <code>${act.session}</code></span>
+                <span>${new Date(act.timestamp).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          <div class="action-preview">
+            <strong>Problem:</strong> ${act.trigger}<br>
+            <strong>Result:</strong> ${act.result}
+          </div>
+          <div class="feedback-section">
+            ${act.feedback ? `
+              <div class="feedback-result show ${act.feedback}">
+                <span>${act.feedback === 'success' ? '✓' : act.feedback === 'partial' ? '◐' : '✗'} ${act.feedback.charAt(0).toUpperCase() + act.feedback.slice(1)}</span>
+                ${act.rating ? `<div class="rating-stars">${'★'.repeat(act.rating)}${'☆'.repeat(5-act.rating)}</div>` : ''}
+              </div>
+              ${act.comment ? `<div style="font-size: 12px; color: var(--muted); font-style: italic;">"${act.comment}"</div>` : ''}
+            ` : `
+              <div class="feedback-buttons">
+                <button class="feedback-btn success" onclick="giveFeedback('${act.id}', 'success')">✓ Success</button>
+                <button class="feedback-btn partial" onclick="giveFeedback('${act.id}', 'partial')">◐ Partial</button>
+                <button class="feedback-btn failure" onclick="giveFeedback('${act.id}', 'failure')">✗ Failure</button>
+              </div>
+              <div class="text-feedback" id="feedback-${act.id}">
+                <textarea placeholder="Add a comment (optional)..." id="comment-${act.id}"></textarea>
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                  <div class="rating-stars" id="stars-${act.id}">
+                    ${[1,2,3,4,5].map(i => `<span class="star" data-rating="${i}" onclick="setRating('${act.id}', ${i})">☆</span>`).join('')}
+                  </div>
+                  <button class="submit-feedback" onclick="submitFeedback('${act.id}')">Submit Feedback</button>
+                </div>
+              </div>
+            `}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Give feedback
+    function giveFeedback(actionId, type) {
+      const feedbackEl = document.getElementById(`feedback-${actionId}`);
+      if (feedbackEl) {
+        feedbackEl.classList.add('show');
+
+        // Update button states
+        const card = document.querySelector(`[data-id="${actionId}"]`);
+        card.querySelectorAll('.feedback-btn').forEach(btn => {
+          btn.classList.remove('selected');
+          if (btn.classList.contains(type)) {
+            btn.classList.add('selected');
+          }
+        });
+
+        // Store pending feedback type
+        const action = actions.find(a => a.id === actionId);
+        if (action) {
+          action._pendingFeedback = type;
+        }
+      }
+    }
+
+    // Set rating
+    function setRating(actionId, rating) {
+      const action = actions.find(a => a.id === actionId);
+      if (action) {
+        action._pendingRating = rating;
+      }
+
+      const starsEl = document.getElementById(`stars-${actionId}`);
+      if (starsEl) {
+        starsEl.querySelectorAll('.star').forEach((star, i) => {
+          if (i < rating) {
+            star.classList.add('active');
+            star.textContent = '★';
+          } else {
+            star.classList.remove('active');
+            star.textContent = '☆';
+          }
+        });
+      }
+    }
+
+    // Submit feedback
+    function submitFeedback(actionId) {
+      const action = actions.find(a => a.id === actionId);
+      if (!action) return;
+
+      const commentEl = document.getElementById(`comment-${actionId}`);
+
+      action.feedback = action._pendingFeedback || 'success';
+      action.rating = action._pendingRating || 4;
+      action.comment = commentEl ? commentEl.value : null;
+
+      // Update stats
+      updateStats();
+      renderActionList();
+    }
+
+    // Update stats
+    function updateStats() {
+      const total = actions.length;
+      const withFeedback = actions.filter(a => a.feedback).length;
+      const success = actions.filter(a => a.feedback === 'success').length;
+      const ratings = actions.filter(a => a.rating).map(a => a.rating);
+      const avgRating = ratings.length ? (ratings.reduce((a,b) => a+b, 0) / ratings.length).toFixed(1) : 0;
+      const pending = total - withFeedback;
+
+      document.getElementById('successRate').textContent = withFeedback ? Math.round(success / withFeedback * 100) + '%' : '0%';
+      document.getElementById('avgRating').textContent = avgRating;
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('totalFeedback').textContent = withFeedback;
+    }
+
+    // Filter handlers
+    document.querySelectorAll('.filter-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        const filter = tag.dataset.filter;
+        const value = tag.dataset.value;
+
+        document.querySelectorAll(`.filter-tag[data-filter="${filter}"]`).forEach(t => {
+          t.classList.remove('active');
+        });
+        tag.classList.add('active');
+
+        filters[filter] = value;
+        renderActionList();
+      });
+    });
+
+    // Search handler
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderActionList();
+    });
+
+    // State switcher
+    document.querySelectorAll('.status-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentState = btn.dataset.state;
+        renderActionList();
+      });
+    });
+
+    // Initialize
+    renderActionList();
+  </script>
+</body>
+</html>

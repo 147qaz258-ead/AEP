@@ -1,6 +1,6 @@
 # Vibedevteam-init 使用经验
 
-> 最后更新：2026-02-21
+> 最后更新：2026-02-24
 
 ## 目的
 
@@ -184,14 +184,16 @@ bd list --status in_progress
 bd show <短ID>
 
 # 开始任务
-bd start <短ID>
+bd update <短ID> -s "doing"
 
-# 完成任务
-bd done <短ID>
+# 完成任务（注意：bd done 不存在！）
+bd update <短ID> -s "doing" && bd close <短ID>
 
-# 设置任务状态
-bd status <短ID> in_progress|pending|completed|blocked
+# 查看可执行任务（无阻塞）
+bd ready
 ```
+
+**重要**：`bd done` 命令不存在，正确的是 `bd close`。
 
 ### 依赖管理
 
@@ -367,6 +369,54 @@ done
 - [ ] 项目目录已初始化 (`ls .beads/` 存在）
 - [ ] TASK 文档存在于指定目录
 - [ ] jq 已安装（如需自动回填功能）
+
+---
+
+## dev agent 自动化模式
+
+### 获取并执行任务
+
+```bash
+# 每次 bash 命令前需要设置 PATH
+export PATH="D:\app\beads_0.55.4_windows_amd64:$PATH"
+
+# 获取可执行任务
+bd ready
+
+# 获取第一个可执行任务的 ID
+TASK_ID=$(bd ready | grep -oP 'agent network-\w+' | head -1)
+echo "Task ID: $TASK_ID"
+
+# 开始任务
+bd update $TASK_ID -s "doing"
+
+# 开发完成后关闭任务
+bd update $TASK_ID -s "doing"
+bd close $TASK_ID
+```
+
+### Git Commit 与 beads
+
+```bash
+# Git pre-commit hook 可能需要 beads
+# 在 commit 前设置 PATH
+export PATH="D:\app\beads_0.55.4_windows_amd64:$PATH"
+git add .
+git commit -m "feat(xxx): description"
+```
+
+### 批量任务状态检查
+
+```bash
+# 查看所有任务状态
+bd list --all
+
+# 查看已完成的任务
+bd list --status closed
+
+# 查看进行中的任务
+bd list --status in_progress
+```
 
 ---
 
