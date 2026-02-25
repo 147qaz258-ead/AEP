@@ -1,7 +1,8 @@
 """
 AEP Session Module.
 
-Exports types and utilities for AgentAction and Session.
+Exports types and utilities for AgentAction and Session,
+as well as the SessionRecorder for managing session lifecycle.
 """
 
 from .models import (
@@ -18,6 +19,13 @@ from .models import (
     create_action,
     create_session,
 )
+from .recorder import (
+    SessionRecorder,
+    SessionError,
+    SessionNotActiveError,
+    SessionNotFoundError,
+)
+from .storage import StorageManager
 
 __all__ = [
     # Enums
@@ -32,4 +40,10 @@ __all__ = [
     "generate_id",
     "create_action",
     "create_session",
+    # Session management
+    "SessionRecorder",
+    "SessionError",
+    "SessionNotActiveError",
+    "SessionNotFoundError",
+    "StorageManager",
 ]
