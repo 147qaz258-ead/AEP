@@ -8,7 +8,8 @@ and analytics of agent experience data.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
+import uuid
 
 
 class ActionOutcome(str, Enum):
@@ -27,8 +28,169 @@ class SessionStatus(str, Enum):
 
 
 @dataclass
+class KeyAction:
+    """
+    Represents a key action taken during the session.
+
+    Attributes:
+        trigger: What triggered this action
+        solution: The solution or approach taken
+        result: The result of the action
+    """
+    trigger: str
+    solution: str
+    result: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            "trigger": self.trigger,
+            "solution": self.solution,
+            "result": self.result,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "KeyAction":
+        """Create from dictionary representation."""
+        return cls(
+            trigger=data["trigger"],
+            solution=data["solution"],
+            result=data["result"],
+        )
+
+
+@dataclass
+class SessionSummary:
+    """
+    Session summary for archival and knowledge extraction.
+    This is the simplified format for session archiving.
+
+    Attributes:
+        id: Unique identifier for this summary
+        session_id: ID of the original session
+        agent_id: ID of the agent that handled the session
+        created_at: ISO 8601 timestamp when the summary was created
+        title: Human-readable title of the session
+        problem: Description of the problem being solved
+        solution: Description of the solution implemented
+        outcome: Outcome status of the session
+        key_actions: Key actions taken during the session
+        signals: Signal patterns extracted from the session
+        action_count: Total number of actions taken
+        duration_seconds: Duration of the session in seconds
+        feedback_score: Optional feedback score (1-5 scale)
+    """
+    session_id: str
+    agent_id: str
+    title: str
+    problem: str
+    solution: str
+    outcome: ActionOutcome
+    key_actions: List[KeyAction]
+    signals: List[str]
+    action_count: int
+    duration_seconds: int
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    feedback_score: Optional[int] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation."""
+        result = {
+            "id": self.id,
+            "session_id": self.session_id,
+            "agent_id": self.agent_id,
+            "created_at": self.created_at,
+            "title": self.title,
+            "problem": self.problem,
+            "solution": self.solution,
+            "outcome": self.outcome.value if isinstance(self.outcome, ActionOutcome) else self.outcome,
+            "key_actions": [action.to_dict() for action in self.key_actions],
+            "signals": self.signals,
+            "action_count": self.action_count,
+            "duration_seconds": self.duration_seconds,
+        }
+        if self.feedback_score is not None:
+            result["feedback_score"] = self.feedback_score
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SessionSummary":
+        """Create from dictionary representation."""
+        outcome_value = data.get("outcome", "success")
+        outcome = ActionOutcome(outcome_value) if isinstance(outcome_value, str) else outcome_value
+
+        key_actions = [
+            KeyAction.from_dict(action) for action in data.get("key_actions", [])
+        ]
+
+        return cls(
+            id=data.get("id", str(uuid.uuid4())),
+            session_id=data["session_id"],
+            agent_id=data["agent_id"],
+            created_at=data.get("created_at", datetime.utcnow().isoformat() + "Z"),
+            title=data["title"],
+            problem=data["problem"],
+            solution=data["solution"],
+            outcome=outcome,
+            key_actions=key_actions,
+            signals=data.get("signals", []),
+            action_count=data["action_count"],
+            duration_seconds=data["duration_seconds"],
+            feedback_score=data.get("feedback_score"),
+        )
+
+
+@dataclass
+class CreateSessionSummaryOptions:
+    """
+    Options for creating a session summary.
+
+    Attributes:
+        session_id: ID of the original session
+        agent_id: ID of the agent that handled the session
+        title: Human-readable title of the session
+        problem: Description of the problem being solved
+        solution: Description of the solution implemented
+        outcome: Outcome status of the session
+        key_actions: Key actions taken during the session
+        signals: Signal patterns extracted from the session
+        action_count: Total number of actions taken
+        duration_seconds: Duration of the session in seconds
+        feedback_score: Optional feedback score (1-5 scale)
+    """
+    session_id: str
+    agent_id: str
+    title: str
+    problem: str
+    solution: str
+    outcome: ActionOutcome
+    key_actions: List[KeyAction]
+    signals: List[str]
+    action_count: int
+    duration_seconds: int
+    feedback_score: Optional[int] = None
+
+    def to_summary(self) -> SessionSummary:
+        """Convert options to a SessionSummary instance."""
+        return SessionSummary(
+            session_id=self.session_id,
+            agent_id=self.agent_id,
+            title=self.title,
+            problem=self.problem,
+            solution=self.solution,
+            outcome=self.outcome,
+            key_actions=self.key_actions,
+            signals=self.signals,
+            action_count=self.action_count,
+            duration_seconds=self.duration_seconds,
+            feedback_score=self.feedback_score,
+        )
+
+
+@dataclass
 class SessionStats:
-    """Summary statistics for a session."""
+    """Summary statistics for a session (detailed version)."""
     total_actions: int = 0
     success_count: int = 0
     failure_count: int = 0
@@ -171,8 +333,11 @@ class ExperienceSummary:
 
 
 @dataclass
-class SessionSummary:
-    """Session summary for archival and analytics."""
+class DetailedSessionSummary:
+    """
+    Detailed session summary for archival and analytics.
+    Extended version with full statistics and feedback details.
+    """
     session_id: str
     started_at: str
     ended_at: str
@@ -212,7 +377,7 @@ class SessionSummary:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SessionSummary":
+    def from_dict(cls, data: Dict[str, Any]) -> "DetailedSessionSummary":
         """Create from dictionary representation."""
         status_value = data.get("status", "active")
         status = SessionStatus(status_value) if isinstance(status_value, str) else status_value
@@ -243,6 +408,7 @@ class ArchiveQuery:
     project_id: Optional[str] = None
     user_id: Optional[str] = None
     status: Optional[SessionStatus] = None
+    outcome: Optional[ActionOutcome] = None
     from_date: Optional[str] = None
     to_date: Optional[str] = None
     limit: Optional[int] = None
@@ -261,6 +427,8 @@ class ArchiveQuery:
             result["user_id"] = self.user_id
         if self.status is not None:
             result["status"] = self.status.value if isinstance(self.status, SessionStatus) else self.status
+        if self.outcome is not None:
+            result["outcome"] = self.outcome.value if isinstance(self.outcome, ActionOutcome) else self.outcome
         if self.from_date is not None:
             result["from_date"] = self.from_date
         if self.to_date is not None:
@@ -277,12 +445,16 @@ class ArchiveQuery:
         status_value = data.get("status")
         status = SessionStatus(status_value) if status_value else None
 
+        outcome_value = data.get("outcome")
+        outcome = ActionOutcome(outcome_value) if outcome_value else None
+
         return cls(
             session_id=data.get("session_id"),
             agent_id=data.get("agent_id"),
             project_id=data.get("project_id"),
             user_id=data.get("user_id"),
             status=status,
+            outcome=outcome,
             from_date=data.get("from_date"),
             to_date=data.get("to_date"),
             limit=data.get("limit"),

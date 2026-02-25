@@ -8,13 +8,18 @@
 
 // Export all types
 export {
-  // Types
+  // Core types
   type ActionOutcome,
+  type KeyAction,
+  type SessionSummary,
+  type CreateSessionSummaryOptions,
+
+  // Detailed types
   type SessionStats,
   type TopSignal,
   type FeedbackSummary,
   type ExperienceSummary,
-  type SessionSummary,
+  type DetailedSessionSummary,
   type ArchiveQuery,
   type ArchiveQueryResult,
 

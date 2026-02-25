@@ -9,12 +9,17 @@ from .models import (
     ActionOutcome,
     SessionStatus,
 
-    # Data classes
+    # Core data classes
+    KeyAction,
+    SessionSummary,
+    CreateSessionSummaryOptions,
+
+    # Detailed data classes
     SessionStats,
     TopSignal,
     FeedbackSummary,
     ExperienceSummary,
-    SessionSummary,
+    DetailedSessionSummary,
     ArchiveQuery,
     ArchiveQueryResult,
 
@@ -27,12 +32,17 @@ __all__ = [
     "ActionOutcome",
     "SessionStatus",
 
-    # Data classes
+    # Core data classes
+    "KeyAction",
+    "SessionSummary",
+    "CreateSessionSummaryOptions",
+
+    # Detailed data classes
     "SessionStats",
     "TopSignal",
     "FeedbackSummary",
     "ExperienceSummary",
-    "SessionSummary",
+    "DetailedSessionSummary",
     "ArchiveQuery",
     "ArchiveQueryResult",
 

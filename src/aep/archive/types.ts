@@ -13,7 +13,52 @@
 export type ActionOutcome = 'success' | 'failure' | 'partial';
 
 /**
- * Summary statistics for a session
+ * Represents a key action taken during the session.
+ */
+export interface KeyAction {
+  /** What triggered this action */
+  trigger: string;
+  /** The solution or approach taken */
+  solution: string;
+  /** The result of the action */
+  result: string;
+}
+
+/**
+ * Session summary for archival and knowledge extraction.
+ * This is the simplified format for session archiving.
+ */
+export interface SessionSummary {
+  /** Unique identifier for this summary */
+  id: string;
+  /** ID of the original session */
+  session_id: string;
+  /** ID of the agent that handled the session */
+  agent_id: string;
+  /** ISO 8601 timestamp when the summary was created */
+  created_at: string;
+  /** Human-readable title of the session */
+  title: string;
+  /** Description of the problem being solved */
+  problem: string;
+  /** Description of the solution implemented */
+  solution: string;
+  /** Outcome status of the session */
+  outcome: ActionOutcome;
+  /** Key actions taken during the session */
+  key_actions: KeyAction[];
+  /** Signal patterns extracted from the session */
+  signals: string[];
+  /** Total number of actions taken */
+  action_count: number;
+  /** Duration of the session in seconds */
+  duration_seconds: number;
+  /** Optional feedback score (1-5 scale) */
+  feedback_score?: number;
+}
+
+/**
+ * Summary statistics for a session (detailed version)
  */
 export interface SessionStats {
   /** Total number of actions in the session */
@@ -81,9 +126,10 @@ export interface ExperienceSummary {
 }
 
 /**
- * Session summary for archival and analytics
+ * Detailed session summary for archival and analytics.
+ * Extended version with full statistics and feedback details.
  */
-export interface SessionSummary {
+export interface DetailedSessionSummary {
   /** Unique session identifier */
   session_id: string;
   /** Session start timestamp (ISO 8601) */
@@ -127,7 +173,9 @@ export interface ArchiveQuery {
   /** Filter by user ID */
   user_id?: string;
   /** Filter by status */
-  status?: SessionSummary['status'];
+  status?: DetailedSessionSummary['status'];
+  /** Filter by outcome */
+  outcome?: ActionOutcome;
   /** Start date filter (ISO 8601) */
   from_date?: string;
   /** End date filter (ISO 8601) */
@@ -148,6 +196,23 @@ export interface ArchiveQueryResult {
   total: number;
   /** Query execution time in milliseconds */
   query_time_ms: number;
+}
+
+/**
+ * Options for creating a session summary.
+ */
+export interface CreateSessionSummaryOptions {
+  session_id: string;
+  agent_id: string;
+  title: string;
+  problem: string;
+  solution: string;
+  outcome: ActionOutcome;
+  key_actions: KeyAction[];
+  signals: string[];
+  action_count: number;
+  duration_seconds: number;
+  feedback_score?: number;
 }
 
 /**
