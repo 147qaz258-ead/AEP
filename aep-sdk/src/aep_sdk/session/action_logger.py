@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .models import (
     ActionType,
@@ -41,6 +41,30 @@ class MessageLog:
     agent_message: str
     tokens_used: Optional[int] = None
     model: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+    result: str = "success"
+
+
+@dataclass
+class DecisionLog:
+    """
+    Structured log entry for decisions.
+
+    Provides a convenient way to log decisions with detailed reasoning info.
+
+    Attributes:
+        options: Available options at decision time
+        selected_option: Index of the selected option
+        reasoning: Reasoning for the decision
+        confidence: Confidence level (0-1)
+        context: Additional context (optional)
+        result: Result status ('success', 'failure', or 'partial')
+    """
+
+    options: Optional[List[str]] = None
+    selected_option: Optional[int] = None
+    reasoning: Optional[str] = None
+    confidence: Optional[float] = None
     context: Optional[Dict[str, Any]] = None
     result: str = "success"
 
@@ -288,6 +312,68 @@ class ActionLogger:
             solution=solution,
             result=result_enum,
             context=context or {},
+        )
+
+        return self.log_action(action)
+
+    def log_decision_structured(self, log: DecisionLog) -> str:
+        """
+        Log a decision with structured decision details.
+
+        This method provides a convenient way to record decisions with
+        detailed information including options, selected option, reasoning,
+        and confidence level.
+
+        Args:
+            log: The DecisionLog entry
+
+        Returns:
+            The action ID
+
+        Example:
+            logger.log_decision_structured(DecisionLog(
+                options=['Option A', 'Option B', 'Option C'],
+                selected_option=1,
+                reasoning='Option B provides the best balance of performance and cost',
+                confidence=0.85
+            ))
+        """
+        ctx: Dict[str, Any] = dict(log.context) if log.context else {}
+
+        # Add optional fields
+        if log.options is not None:
+            ctx["options"] = log.options
+        if log.selected_option is not None:
+            ctx["selected_option"] = log.selected_option
+        if log.reasoning is not None:
+            ctx["reasoning"] = log.reasoning
+        if log.confidence is not None:
+            # Validate confidence is between 0 and 1
+            confidence = max(0.0, min(1.0, log.confidence))
+            ctx["confidence"] = confidence
+
+        # Determine result status
+        result_enum = self._parse_result(log.result)
+
+        # Create trigger and solution from decision info
+        if log.options:
+            trigger = f"Decision needed: {len(log.options)} options available"
+        else:
+            trigger = "Decision made"
+
+        if log.reasoning:
+            selected = log.selected_option if log.selected_option is not None else "?"
+            solution = f"Selected option {selected}: {log.reasoning[:100]}"
+        else:
+            selected = log.selected_option if log.selected_option is not None else "?"
+            solution = f"Selected option {selected}"
+
+        action = create_action(
+            action_type=ActionType.DECISION,
+            trigger=trigger,
+            solution=solution,
+            result=result_enum,
+            context=ctx,
         )
 
         return self.log_action(action)

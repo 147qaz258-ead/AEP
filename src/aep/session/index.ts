@@ -39,4 +39,5 @@ export {
   type MessageOptions,
   type MessageLog,
   type DecisionOptions,
+  type DecisionLog,
 } from './action-logger';

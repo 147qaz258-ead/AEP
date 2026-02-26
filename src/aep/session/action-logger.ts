@@ -134,6 +134,35 @@ export interface DecisionOptions {
 }
 
 /**
+ * Structured log entry for decisions.
+ * Provides a convenient way to log decisions with detailed reasoning info.
+ *
+ * @example
+ * ```typescript
+ * logger.log_decision({
+ *   options: ['Option A', 'Option B', 'Option C'],
+ *   selected_option: 1,
+ *   reasoning: 'Option B provides the best balance of performance and cost',
+ *   confidence: 0.85
+ * });
+ * ```
+ */
+export interface DecisionLog {
+  /** Available options at decision time */
+  options?: string[];
+  /** Index of the selected option */
+  selected_option?: number;
+  /** Reasoning for the decision */
+  reasoning?: string;
+  /** Confidence level (0-1) */
+  confidence?: number;
+  /** Additional context (optional) */
+  context?: Record<string, unknown>;
+  /** Result status (default: 'success') */
+  result?: 'success' | 'failure' | 'partial';
+}
+
+/**
  * Action logger for recording agent actions to session files.
  *
  * This class provides convenient methods for logging different types of
@@ -543,6 +572,79 @@ export class ActionLogger {
       action_type: 'decision',
       trigger,
       solution: solution!,
+      result: resultValue,
+      context: ctx,
+    });
+
+    return this.logAction(action);
+  }
+
+  /**
+   * Log a decision with structured decision details.
+   *
+   * This method provides a convenient way to record decisions with
+   * detailed information including options, selected option, reasoning,
+   * and confidence level.
+   *
+   * @param log - The decision log entry
+   * @returns The action ID
+   *
+   * @example
+   * ```typescript
+   * // Decision with options and reasoning
+   * logger.log_decision({
+   *   options: ['Option A', 'Option B', 'Option C'],
+   *   selected_option: 1,
+   *   reasoning: 'Option B provides the best balance of performance and cost',
+   *   confidence: 0.85
+   * });
+   *
+   * // Decision with partial confidence
+   * logger.log_decision({
+   *   options: ['Approach X', 'Approach Y'],
+   *   selected_option: 0,
+   *   reasoning: 'Chose X for simplicity',
+   *   confidence: 0.6,
+   *   result: 'partial'
+   * });
+   * ```
+   */
+  log_decision(log: DecisionLog): string {
+    const ctx: Record<string, unknown> = {
+      ...log.context,
+    };
+
+    // Add optional fields
+    if (log.options !== undefined) {
+      ctx['options'] = log.options;
+    }
+    if (log.selected_option !== undefined) {
+      ctx['selected_option'] = log.selected_option;
+    }
+    if (log.reasoning !== undefined) {
+      ctx['reasoning'] = log.reasoning;
+    }
+    if (log.confidence !== undefined) {
+      // Validate confidence is between 0 and 1
+      const confidence = Math.max(0, Math.min(1, log.confidence));
+      ctx['confidence'] = confidence;
+    }
+
+    // Determine result status
+    const resultValue: ActionResult = log.result || 'success';
+
+    // Create trigger and solution from decision info
+    const trigger = log.options
+      ? `Decision needed: ${log.options.length} options available`
+      : 'Decision made';
+    const solution = log.reasoning
+      ? `Selected option ${log.selected_option ?? '?'}: ${log.reasoning.substring(0, 100)}`
+      : `Selected option ${log.selected_option ?? '?'}`;
+
+    const action = createAgentAction({
+      action_type: 'decision',
+      trigger,
+      solution,
       result: resultValue,
       context: ctx,
     });

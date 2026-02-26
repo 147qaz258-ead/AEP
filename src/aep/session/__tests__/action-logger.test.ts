@@ -22,6 +22,7 @@ import {
   createAgentAction,
   ToolCallLog,
   MessageLog,
+  DecisionLog,
 } from '../index';
 
 describe('ActionLogger', () => {
@@ -544,6 +545,145 @@ describe('ActionLogger', () => {
       );
 
       expect(actionId).toBeDefined();
+    });
+  });
+
+  describe('log_decision', () => {
+    it('should log a decision with options and selected option', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_decision({
+        options: ['Option A', 'Option B', 'Option C'],
+        selected_option: 1,
+        reasoning: 'Option B provides the best balance',
+        confidence: 0.85,
+      });
+
+      expect(actionId).toBeDefined();
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('decision');
+      expect(action.context.options).toEqual(['Option A', 'Option B', 'Option C']);
+      expect(action.context.selected_option).toBe(1);
+      expect(action.context.reasoning).toBe('Option B provides the best balance');
+      expect(action.context.confidence).toBe(0.85);
+    });
+
+    it('should log decision with only required fields', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_decision({
+        options: ['Yes', 'No'],
+        selected_option: 0,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('decision');
+      expect(action.context.options).toEqual(['Yes', 'No']);
+      expect(action.context.selected_option).toBe(0);
+      expect(action.context.reasoning).toBeUndefined();
+      expect(action.context.confidence).toBeUndefined();
+    });
+
+    it('should log decision with reasoning only', () => {
+      recorder.startSession();
+
+      logger.log_decision({
+        reasoning: 'Decided to take action based on analysis',
+        confidence: 0.75,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.reasoning).toBe('Decided to take action based on analysis');
+      expect(action.context.confidence).toBe(0.75);
+    });
+
+    it('should clamp confidence to 0-1 range', () => {
+      recorder.startSession();
+
+      logger.log_decision({
+        options: ['A', 'B'],
+        selected_option: 0,
+        confidence: 1.5, // Above max
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      expect(session!.actions[0].context.confidence).toBe(1);
+
+      logger.log_decision({
+        options: ['C', 'D'],
+        selected_option: 1,
+        confidence: -0.5, // Below min
+      });
+
+      expect(session!.actions[1].context.confidence).toBe(0);
+    });
+
+    it('should log decision with context', () => {
+      recorder.startSession();
+
+      logger.log_decision({
+        options: ['Approach X', 'Approach Y'],
+        selected_option: 1,
+        reasoning: 'Y is more maintainable',
+        context: { decision_maker: 'planner', priority: 'high' },
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.decision_maker).toBe('planner');
+      expect(action.context.priority).toBe('high');
+    });
+
+    it('should log decision with failure result', () => {
+      recorder.startSession();
+
+      logger.log_decision({
+        options: ['Retry', 'Abort'],
+        selected_option: 0,
+        reasoning: 'Retry might succeed',
+        result: 'failure',
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      expect(session!.actions[0].result).toBe('failure');
+    });
+
+    it('should persist log_decision to JSONL file', () => {
+      const sessionId = recorder.startSession();
+
+      logger.log_decision({
+        options: ['Option 1', 'Option 2'],
+        selected_option: 1,
+        reasoning: 'Test reasoning',
+        confidence: 0.9,
+      });
+
+      // Verify file content
+      const filePath = path.join(tempDir, '.aep', 'sessions', `${sessionId}.jsonl`);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      expect(lines).toHaveLength(2); // header + 1 action
+
+      const actionLine = JSON.parse(lines[1]);
+      expect(actionLine._type).toBe('action');
+      expect(actionLine.action.action_type).toBe('decision');
+      expect(actionLine.action.context.options).toEqual(['Option 1', 'Option 2']);
+      expect(actionLine.action.context.selected_option).toBe(1);
+      expect(actionLine.action.context.confidence).toBe(0.9);
+    });
+
+    it('should throw SessionNotActiveError without active session', () => {
+      expect(() =>
+        logger.log_decision({
+          options: ['A', 'B'],
+          selected_option: 0,
+        })
+      ).toThrow(SessionNotActiveError);
     });
   });
 
