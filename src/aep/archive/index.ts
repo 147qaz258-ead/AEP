@@ -26,3 +26,12 @@ export {
   // Constants
   ARCHIVE_VERSION,
 } from './types';
+
+// Export archiver
+export {
+  MemoryArchiver,
+  type CleanupResult,
+  type SummaryInfo,
+  type StorageStats,
+  type ArchiveOptions,
+} from './archiver';

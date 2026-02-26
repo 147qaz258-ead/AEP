@@ -25,3 +25,12 @@ export {
   // Statistics types
   type FeedbackStats,
 } from './types';
+
+// Export collector
+export {
+  FeedbackCollector,
+  FeedbackError,
+  FeedbackNotFoundError,
+  InvalidRatingError,
+  type SubmitExplicitFeedbackOptions,
+} from './collector';

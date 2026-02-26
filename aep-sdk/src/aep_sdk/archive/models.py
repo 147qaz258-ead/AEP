@@ -6,7 +6,7 @@ and analytics of agent experience data.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Literal
 import uuid
@@ -91,7 +91,7 @@ class SessionSummary:
     action_count: int
     duration_seconds: int
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
     feedback_score: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -128,7 +128,7 @@ class SessionSummary:
             id=data.get("id", str(uuid.uuid4())),
             session_id=data["session_id"],
             agent_id=data["agent_id"],
-            created_at=data.get("created_at", datetime.utcnow().isoformat() + "Z"),
+            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
             title=data["title"],
             problem=data["problem"],
             solution=data["solution"],

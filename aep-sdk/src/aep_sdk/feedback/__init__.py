@@ -23,6 +23,15 @@ from .models import (
     FeedbackStats,
 )
 
+from .collector import (
+    # Collector classes
+    FeedbackCollector,
+    FeedbackError,
+    FeedbackNotFoundError,
+    InvalidRatingError,
+    SubmitExplicitFeedbackOptions,
+)
+
 __all__ = [
     # Enums
     "FeedbackType",
@@ -40,4 +49,11 @@ __all__ = [
 
     # Statistics types
     "FeedbackStats",
+
+    # Collector
+    "FeedbackCollector",
+    "FeedbackError",
+    "FeedbackNotFoundError",
+    "InvalidRatingError",
+    "SubmitExplicitFeedbackOptions",
 ]

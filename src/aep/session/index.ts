@@ -35,6 +35,7 @@ export {
   WriteError,
   type ActionLoggerOptions,
   type ToolCallOptions,
+  type ToolCallLog,
   type MessageOptions,
   type DecisionOptions,
 } from './action-logger';

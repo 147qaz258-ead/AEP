@@ -50,6 +50,33 @@ export interface ToolCallOptions {
 }
 
 /**
+ * Structured log entry for tool calls.
+ * Provides a convenient way to log tool calls with detailed execution info.
+ *
+ * @example
+ * ```typescript
+ * logger.log_tool_call({
+ *   tool_name: 'read_file',
+ *   arguments: { path: '/src/index.ts' },
+ *   result: { content: '...' },
+ *   duration_ms: 150
+ * });
+ * ```
+ */
+export interface ToolCallLog {
+  /** Name of the tool that was called */
+  tool_name: string;
+  /** Arguments passed to the tool */
+  arguments: Record<string, any>;
+  /** Result returned by the tool */
+  result: any;
+  /** Error message if the tool call failed */
+  error?: string;
+  /** Duration of the tool call in milliseconds */
+  duration_ms?: number;
+}
+
+/**
  * Options for logging a message
  */
 export interface MessageOptions {
@@ -229,6 +256,71 @@ export class ActionLogger {
       action_type: 'tool_call',
       trigger: trigger!,
       solution: solution!,
+      result: resultValue,
+      context: ctx,
+    });
+
+    return this.logAction(action);
+  }
+
+  /**
+   * Log a tool call with structured execution details.
+   *
+   * This method provides a convenient way to record tool calls with
+   * detailed information including arguments, results, errors, and duration.
+   *
+   * @param log - The tool call log entry
+   * @returns The action ID
+   *
+   * @example
+   * ```typescript
+   * // Successful tool call
+   * logger.log_tool_call({
+   *   tool_name: 'read_file',
+   *   arguments: { path: '/src/index.ts' },
+   *   result: { content: '...' },
+   *   duration_ms: 150
+   * });
+   *
+   * // Failed tool call
+   * logger.log_tool_call({
+   *   tool_name: 'bash',
+   *   arguments: { command: 'npm test' },
+   *   result: null,
+   *   error: 'Command failed with exit code 1',
+   *   duration_ms: 5230
+   * });
+   * ```
+   */
+  log_tool_call(log: ToolCallLog): string {
+    const ctx: Record<string, unknown> = {
+      tool_name: log.tool_name,
+      tool_arguments: log.arguments,
+      tool_result: log.result,
+      tools_used: [log.tool_name],
+    };
+
+    // Add optional fields
+    if (log.error !== undefined) {
+      ctx['tool_error'] = log.error;
+    }
+    if (log.duration_ms !== undefined) {
+      ctx['duration_ms'] = log.duration_ms;
+    }
+
+    // Determine result status based on error presence
+    const resultValue: ActionResult = log.error ? 'failure' : 'success';
+
+    // Create trigger and solution from tool call info
+    const trigger = `Tool call: ${log.tool_name}`;
+    const solution = log.error
+      ? `Error: ${log.error}`
+      : `Executed ${log.tool_name} successfully`;
+
+    const action = createAgentAction({
+      action_type: 'tool_call',
+      trigger,
+      solution,
       result: resultValue,
       context: ctx,
     });

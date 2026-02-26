@@ -26,6 +26,12 @@ from .models import (
     # Constants
     ARCHIVE_VERSION,
 )
+from .archiver import (
+    MemoryArchiver,
+    CleanupResult,
+    SummaryInfo,
+    StorageStats,
+)
 
 __all__ = [
     # Enums
@@ -45,6 +51,12 @@ __all__ = [
     "DetailedSessionSummary",
     "ArchiveQuery",
     "ArchiveQueryResult",
+
+    # Archiver
+    "MemoryArchiver",
+    "CleanupResult",
+    "SummaryInfo",
+    "StorageStats",
 
     # Constants
     "ARCHIVE_VERSION",
