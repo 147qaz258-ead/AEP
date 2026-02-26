@@ -1,7 +1,8 @@
 /**
  * AEP Session Module
  * Exports types and utilities for AgentAction and Session,
- * as well as the SessionRecorder for managing session lifecycle.
+ * as well as the SessionRecorder for managing session lifecycle,
+ * and ActionLogger for recording agent actions.
  */
 
 export {
@@ -27,3 +28,13 @@ export {
   SessionNotFoundError,
   StorageManager,
 } from './recorder';
+
+export {
+  // Action logging
+  ActionLogger,
+  WriteError,
+  type ActionLoggerOptions,
+  type ToolCallOptions,
+  type MessageOptions,
+  type DecisionOptions,
+} from './action-logger';

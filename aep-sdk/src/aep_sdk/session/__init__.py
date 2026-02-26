@@ -2,7 +2,8 @@
 AEP Session Module.
 
 Exports types and utilities for AgentAction and Session,
-as well as the SessionRecorder for managing session lifecycle.
+as well as the SessionRecorder for managing session lifecycle,
+and ActionLogger for recording agent actions.
 """
 
 from .models import (
@@ -26,6 +27,10 @@ from .recorder import (
     SessionNotFoundError,
 )
 from .storage import StorageManager
+from .action_logger import (
+    ActionLogger,
+    WriteError,
+)
 
 __all__ = [
     # Enums
@@ -46,4 +51,7 @@ __all__ = [
     "SessionNotActiveError",
     "SessionNotFoundError",
     "StorageManager",
+    # Action logging
+    "ActionLogger",
+    "WriteError",
 ]
