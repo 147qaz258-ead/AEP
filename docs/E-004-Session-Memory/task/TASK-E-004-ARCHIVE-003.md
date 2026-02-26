@@ -2,14 +2,15 @@
 
 > 文档路径：`/docs/E-004-Session-Memory/task/TASK-E-004-ARCHIVE-003.md`
 > 任务ID：TASK-E-004-ARCHIVE-003
-> Beads 任务ID：`（待创建）`
+> Beads 任务ID：`0z8`
 > 任务标题：Pending Queue Manager 待发布队列管理器
 > Epic：E-004 Session Memory
 > Epic 目录：`E-004-Session-Memory`
-> 状态（以 beads 为准）：TODO
-> 负责人：（待分配）
+> 状态（以 beads 为准）：DONE
+> 负责人：dev-agent
 > 预估工期：4h
 > 创建日期：2026-02-24
+> 完成日期：2026-02-26
 
 ---
 
@@ -33,12 +34,12 @@
 
 ## 3. 验收标准
 
-- [ ] AC1：`add_pending(experience)` 添加待发布 Experience
-- [ ] AC2：`list_pending()` 列出所有待发布 Experience
-- [ ] AC3：`remove_pending(exp_id)` 移除已发布 Experience
-- [ ] AC4：`get_batch()` 获取批量发布队列
-- [ ] AC5：持久化到 `.aep/pending/` 目录
-- [ ] AC6：支持按 session_id 过滤
+- [x] AC1：`add_pending(experience)` 添加待发布 Experience
+- [x] AC2：`list_pending()` 列出所有待发布 Experience
+- [x] AC3：`remove_pending(exp_id)` 移除已发布 Experience
+- [x] AC4：`get_batch()` 获取批量发布队列
+- [x] AC5：持久化到 `.aep/pending/` 目录
+- [x] AC6：支持按 session_id 过滤
 
 ---
 
@@ -338,8 +339,69 @@ class TestPendingQueueManager:
 
 ---
 
-## 6. 变更记录
+## 6. 实现记录
+
+### 6.1 实际实现
+
+**TypeScript 实现**：
+- 文件位置：`src/aep/archive/pending-queue.ts`
+- 类型定义：`src/aep/archive/types.ts`（新增 PendingExperience, PendingStatus 等）
+- 导出更新：`src/aep/archive/index.ts`
+
+**Python 实现**：
+- 文件位置：`aep-sdk/src/aep_sdk/archive/pending_queue.py`
+- 类型定义：`aep-sdk/src/aep_sdk/archive/models.py`（新增 PendingExperience, PendingStatus）
+- 导出更新：`aep-sdk/src/aep_sdk/archive/__init__.py`
+
+### 6.2 核心功能
+
+| 方法 | 描述 | 状态 |
+|------|------|------|
+| `addPending()` | 添加待发布 Experience | 已实现 |
+| `listPending()` | 列出待发布 Experience（支持 session_id/status/limit 过滤） | 已实现 |
+| `getPending()` | 获取指定 Experience | 已实现 |
+| `removePending()` | 移除已发布 Experience | 已实现 |
+| `approvePending()` | 标记为已批准 | 已实现 |
+| `rejectPending()` | 标记为已拒绝 | 已实现 |
+| `getBatch()` | 获取批量发布队列 | 已实现 |
+| `clearCompleted()` | 清理已完成记录 | 已实现 |
+| `getStats()` | 获取队列统计 | 已实现 |
+| `toPublishPayload()` | 转换为发布格式 | 已实现 |
+
+### 6.3 测试记录
+
+**TypeScript 测试**：
+- 文件：`src/aep/archive/__tests__/pending-queue.test.ts`
+- 测试结果：19 tests passed
+- 覆盖场景：
+  - 添加 pending experience
+  - 持久化验证
+  - 可选字段 feedback_score
+  - 列表过滤（session_id、status、limit）
+  - 获取单个 experience
+  - 移除 experience
+  - 批准/拒绝操作
+  - 批量获取
+  - 清理已完成记录
+  - 队列统计
+  - 发布载荷转换
+
+**Python 测试**：
+- 文件：`aep-sdk/tests/test_pending_queue.py`
+- 测试结果：18 tests passed
+- 覆盖场景：同 TypeScript + 跨实例持久化测试
+
+### 6.4 持久化位置
+
+- 目录：`{workspace}/.aep/pending/`
+- 文件格式：`exp_{uuid}.json`
+- JSON 结构与 PendingExperience 类型一致
+
+---
+
+## 7. 变更记录
 
 | 版本 | 日期 | 修改人 | 修改内容 |
 |------|------|--------|----------|
 | v1.0 | 2026-02-24 | AEP Protocol Team | 初版 |
+| v1.1 | 2026-02-26 | dev-agent | 实现完成，更新验收标准为已通过 |

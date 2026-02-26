@@ -219,3 +219,75 @@ export interface CreateSessionSummaryOptions {
  * Current archive schema version
  */
 export const ARCHIVE_VERSION = '1.0.0';
+
+/**
+ * Status of a pending experience
+ */
+export type PendingStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * PendingExperience - Experience waiting to be published to Hub.
+ *
+ * Represents an extracted experience from a successful session
+ * that is awaiting user confirmation before publishing.
+ */
+export interface PendingExperience {
+  /** Unique identifier for this pending experience (format: exp_xxx) */
+  id: string;
+  /** What triggered this experience */
+  trigger: string;
+  /** The solution or approach taken */
+  solution: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** ID of the source action */
+  source_action_id: string;
+  /** ID of the source session */
+  source_session_id: string;
+  /** Optional feedback score */
+  feedback_score?: number;
+  /** ISO 8601 timestamp when created */
+  created_at: string;
+  /** Current status */
+  status: PendingStatus;
+}
+
+/**
+ * Options for creating a pending experience.
+ */
+export interface CreatePendingExperienceOptions {
+  /** What triggered this experience */
+  trigger: string;
+  /** The solution or approach taken */
+  solution: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** ID of the source action */
+  source_action_id: string;
+  /** ID of the source session */
+  source_session_id: string;
+  /** Optional feedback score */
+  feedback_score?: number;
+}
+
+/**
+ * Options for listing pending experiences.
+ */
+export interface ListPendingOptions {
+  /** Filter by session ID */
+  session_id?: string;
+  /** Filter by status */
+  status?: PendingStatus;
+  /** Maximum number of results */
+  limit?: number;
+}
+
+/**
+ * Options for batch retrieval.
+ */
+export interface GetBatchOptions {
+  /** Batch size (default: 10) */
+  batch_size?: number;
+  /** Filter by status (default: 'approved') */
+  status?: PendingStatus;
+}

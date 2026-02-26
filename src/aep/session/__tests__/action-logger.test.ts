@@ -20,6 +20,7 @@ import {
   ActionType,
   ActionResult,
   createAgentAction,
+  ToolCallLog,
 } from '../index';
 
 describe('ActionLogger', () => {
@@ -154,6 +155,139 @@ describe('ActionLogger', () => {
       const session = recorder.getSession(recorder.getActiveSession()!);
       expect(session!.actions[0].action_type).toBe('tool_call');
       expect(session!.actions[0].context.extra).toBe('info');
+    });
+  });
+
+  describe('log_tool_call', () => {
+    it('should log a tool call with structured log format', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_tool_call({
+        tool_name: 'read_file',
+        arguments: { path: '/src/index.ts' },
+        result: { content: 'file content here' },
+        duration_ms: 150,
+      });
+
+      expect(actionId).toBeDefined();
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      expect(session).toBeDefined();
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('tool_call');
+      expect(action.result).toBe('success');
+      expect(action.context.tool_name).toBe('read_file');
+      expect(action.context.tool_arguments).toEqual({ path: '/src/index.ts' });
+      expect(action.context.tool_result).toEqual({ content: 'file content here' });
+      expect(action.context.duration_ms).toBe(150);
+      expect(action.context.tools_used).toContain('read_file');
+    });
+
+    it('should log a failed tool call with error', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_tool_call({
+        tool_name: 'bash',
+        arguments: { command: 'npm test' },
+        result: null,
+        error: 'Command failed with exit code 1',
+        duration_ms: 5230,
+      });
+
+      expect(actionId).toBeDefined();
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('tool_call');
+      expect(action.result).toBe('failure');
+      expect(action.context.tool_name).toBe('bash');
+      expect(action.context.tool_error).toBe('Command failed with exit code 1');
+      expect(action.context.duration_ms).toBe(5230);
+      expect(action.solution).toContain('Error: Command failed with exit code 1');
+    });
+
+    it('should log tool call without optional fields', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_tool_call({
+        tool_name: 'search',
+        arguments: { query: 'test' },
+        result: ['result1', 'result2'],
+      });
+
+      expect(actionId).toBeDefined();
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('tool_call');
+      expect(action.result).toBe('success');
+      expect(action.context.tool_name).toBe('search');
+      expect(action.context.tool_arguments).toEqual({ query: 'test' });
+      expect(action.context.tool_result).toEqual(['result1', 'result2']);
+      expect(action.context.tool_error).toBeUndefined();
+      expect(action.context.duration_ms).toBeUndefined();
+    });
+
+    it('should handle complex nested arguments and results', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_tool_call({
+        tool_name: 'complex_tool',
+        arguments: {
+          config: {
+            nested: { deep: 'value' },
+            array: [1, 2, 3],
+          },
+          options: ['a', 'b', 'c'],
+        },
+        result: {
+          status: 'completed',
+          data: {
+            items: [{ id: 1, name: 'item1' }, { id: 2, name: 'item2' }],
+          },
+        },
+        duration_ms: 1000,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.tool_arguments.config.nested.deep).toBe('value');
+      expect(action.context.tool_arguments.config.array).toEqual([1, 2, 3]);
+      expect(action.context.tool_result.data.items).toHaveLength(2);
+    });
+
+    it('should persist log_tool_call to JSONL file', () => {
+      const sessionId = recorder.startSession();
+
+      logger.log_tool_call({
+        tool_name: 'read_file',
+        arguments: { path: '/src/index.ts' },
+        result: { content: 'file content' },
+        duration_ms: 100,
+      });
+
+      // Verify file content
+      const filePath = path.join(tempDir, '.aep', 'sessions', `${sessionId}.jsonl`);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      expect(lines).toHaveLength(2); // header + 1 action
+
+      const actionLine = JSON.parse(lines[1]);
+      expect(actionLine._type).toBe('action');
+      expect(actionLine.action.action_type).toBe('tool_call');
+      expect(actionLine.action.context.tool_name).toBe('read_file');
+      expect(actionLine.action.context.duration_ms).toBe(100);
+    });
+
+    it('should throw SessionNotActiveError without active session', () => {
+      expect(() =>
+        logger.log_tool_call({
+          tool_name: 'test',
+          arguments: {},
+          result: null,
+        })
+      ).toThrow(SessionNotActiveError);
     });
   });
 

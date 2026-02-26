@@ -27,6 +27,13 @@ class SessionStatus(str, Enum):
     ERROR = "error"
 
 
+class PendingStatus(str, Enum):
+    """Status of a pending experience."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 @dataclass
 class KeyAction:
     """
@@ -485,6 +492,85 @@ class ArchiveQueryResult:
             total=data.get("total", 0),
             query_time_ms=data.get("query_time_ms", 0.0),
         )
+
+
+@dataclass
+class PendingExperience:
+    """
+    PendingExperience - Experience waiting to be published to Hub.
+
+    Represents an extracted experience from a successful session
+    that is awaiting user confirmation before publishing.
+
+    Attributes:
+        id: Unique identifier for this pending experience (format: exp_xxx)
+        trigger: What triggered this experience
+        solution: The solution or approach taken
+        confidence: Confidence score (0-1)
+        source_action_id: ID of the source action
+        source_session_id: ID of the source session
+        feedback_score: Optional feedback score
+        created_at: ISO 8601 timestamp when created
+        status: Current status (pending/approved/rejected)
+    """
+    trigger: str
+    solution: str
+    confidence: float
+    source_action_id: str
+    source_session_id: str
+    id: str = field(default_factory=lambda: f"exp_{uuid.uuid4().hex[:12]}")
+    feedback_score: Optional[float] = None
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
+    status: PendingStatus = PendingStatus.PENDING
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation."""
+        result = {
+            "id": self.id,
+            "trigger": self.trigger,
+            "solution": self.solution,
+            "confidence": self.confidence,
+            "source_action_id": self.source_action_id,
+            "source_session_id": self.source_session_id,
+            "created_at": self.created_at,
+            "status": self.status.value if isinstance(self.status, PendingStatus) else self.status,
+        }
+        if self.feedback_score is not None:
+            result["feedback_score"] = self.feedback_score
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PendingExperience":
+        """Create from dictionary representation."""
+        status_value = data.get("status", "pending")
+        status = PendingStatus(status_value) if isinstance(status_value, str) else status_value
+
+        return cls(
+            id=data.get("id", f"exp_{uuid.uuid4().hex[:12]}"),
+            trigger=data["trigger"],
+            solution=data["solution"],
+            confidence=data["confidence"],
+            source_action_id=data["source_action_id"],
+            source_session_id=data["source_session_id"],
+            feedback_score=data.get("feedback_score"),
+            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
+            status=status,
+        )
+
+    def to_publish_payload(self) -> Dict[str, Any]:
+        """Convert to publish request format for Hub."""
+        result = {
+            "trigger": self.trigger,
+            "solution": self.solution,
+            "confidence": self.confidence,
+            "context": {
+                "source_session": self.source_session_id,
+                "source_action": self.source_action_id,
+            }
+        }
+        if self.feedback_score is not None:
+            result["context"]["feedback_score"] = self.feedback_score
+        return result
 
 
 # Current archive schema version

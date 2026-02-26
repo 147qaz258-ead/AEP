@@ -23,6 +23,13 @@ export {
   type ArchiveQuery,
   type ArchiveQueryResult,
 
+  // Pending types
+  type PendingStatus,
+  type PendingExperience,
+  type CreatePendingExperienceOptions,
+  type ListPendingOptions,
+  type GetBatchOptions,
+
   // Constants
   ARCHIVE_VERSION,
 } from './types';
@@ -35,3 +42,6 @@ export {
   type StorageStats,
   type ArchiveOptions,
 } from './archiver';
+
+// Export pending queue
+export { PendingQueueManager } from './pending-queue';
