@@ -91,6 +91,35 @@ export interface MessageOptions {
 }
 
 /**
+ * Structured log entry for messages.
+ * Provides a convenient way to log conversations with detailed info.
+ *
+ * @example
+ * ```typescript
+ * logger.log_message({
+ *   user_message: 'What is the capital of France?',
+ *   agent_message: 'The capital of France is Paris.',
+ *   tokens_used: 25,
+ *   model: 'claude-3-opus'
+ * });
+ * ```
+ */
+export interface MessageLog {
+  /** The user's input message */
+  user_message: string;
+  /** The agent's response message */
+  agent_message: string;
+  /** Number of tokens used (optional) */
+  tokens_used?: number;
+  /** Model identifier (optional) */
+  model?: string;
+  /** Additional context (optional) */
+  context?: Record<string, unknown>;
+  /** Result status (default: 'success') */
+  result?: 'success' | 'failure' | 'partial';
+}
+
+/**
  * Options for logging a decision
  */
 export interface DecisionOptions {
@@ -381,6 +410,79 @@ export class ActionLogger {
       action_type: 'message',
       trigger,
       solution: solution!,
+      result: resultValue,
+      context: ctx,
+    });
+
+    return this.logAction(action);
+  }
+
+  /**
+   * Log a message with structured conversation details.
+   *
+   * This method provides a convenient way to record messages with
+   * detailed information including user input, agent response,
+   * token usage, and model info.
+   *
+   * Messages longer than 10KB are automatically truncated.
+   *
+   * @param log - The message log entry
+   * @returns The action ID
+   *
+   * @example
+   * ```typescript
+   * // Basic message logging
+   * logger.log_message({
+   *   user_message: 'What is the capital of France?',
+   *   agent_message: 'The capital of France is Paris.',
+   *   tokens_used: 25,
+   *   model: 'claude-3-opus'
+   * });
+   *
+   * // With failure result
+   * logger.log_message({
+   *   user_message: 'Complex query...',
+   *   agent_message: 'Error: Unable to process',
+   *   result: 'failure'
+   * });
+   * ```
+   */
+  log_message(log: MessageLog): string {
+    const MAX_MESSAGE_SIZE = 10000; // 10KB limit
+
+    // Truncate messages if too long
+    const truncateMessage = (msg: string): string => {
+      if (msg.length > MAX_MESSAGE_SIZE) {
+        return msg.substring(0, MAX_MESSAGE_SIZE) + '...[truncated]';
+      }
+      return msg;
+    };
+
+    const ctx: Record<string, unknown> = {
+      user_message: truncateMessage(log.user_message),
+      agent_message: truncateMessage(log.agent_message),
+      ...log.context,
+    };
+
+    // Add optional fields
+    if (log.tokens_used !== undefined) {
+      ctx['tokens_used'] = log.tokens_used;
+    }
+    if (log.model !== undefined) {
+      ctx['model'] = log.model;
+    }
+
+    // Determine result status
+    const resultValue: ActionResult = log.result || 'success';
+
+    // Create trigger and solution from message info
+    const trigger = `User: ${truncateMessage(log.user_message.substring(0, 100))}`;
+    const solution = `Agent: ${truncateMessage(log.agent_message.substring(0, 100))}`;
+
+    const action = createAgentAction({
+      action_type: 'message',
+      trigger,
+      solution,
       result: resultValue,
       context: ctx,
     });

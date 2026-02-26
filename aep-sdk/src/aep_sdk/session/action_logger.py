@@ -8,6 +8,7 @@ to session files.
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from .models import (
@@ -18,6 +19,30 @@ from .models import (
     generate_id,
 )
 from .recorder import SessionRecorder, SessionNotActiveError
+
+
+@dataclass
+class MessageLog:
+    """
+    Structured log entry for messages.
+
+    Provides a convenient way to log conversations with detailed info.
+
+    Attributes:
+        user_message: The user's input message
+        agent_message: The agent's response message
+        tokens_used: Number of tokens used (optional)
+        model: Model identifier (optional)
+        context: Additional context (optional)
+        result: Result status ('success', 'failure', or 'partial')
+    """
+
+    user_message: str
+    agent_message: str
+    tokens_used: Optional[int] = None
+    model: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+    result: str = "success"
 
 
 class WriteError(Exception):
@@ -169,6 +194,69 @@ class ActionLogger:
             solution=solution,
             result=result_enum,
             context=context or {},
+        )
+
+        return self.log_action(action)
+
+    def log_message_structured(self, log: MessageLog) -> str:
+        """
+        Log a message with structured conversation details.
+
+        This method provides a convenient way to record messages with
+        detailed information including user input, agent response,
+        token usage, and model info.
+
+        Messages longer than 10KB are automatically truncated.
+
+        Args:
+            log: The MessageLog entry
+
+        Returns:
+            The action ID
+
+        Example:
+            logger.log_message_structured(MessageLog(
+                user_message='What is the capital of France?',
+                agent_message='The capital of France is Paris.',
+                tokens_used=25,
+                model='claude-3-opus'
+            ))
+        """
+        MAX_MESSAGE_SIZE = 10000  # 10KB limit
+
+        def truncate_message(msg: str) -> str:
+            if len(msg) > MAX_MESSAGE_SIZE:
+                return msg[:MAX_MESSAGE_SIZE] + '...[truncated]'
+            return msg
+
+        ctx: Dict[str, Any] = {
+            "user_message": truncate_message(log.user_message),
+            "agent_message": truncate_message(log.agent_message),
+        }
+
+        # Merge additional context
+        if log.context:
+            ctx.update(log.context)
+
+        # Add optional fields
+        if log.tokens_used is not None:
+            ctx["tokens_used"] = log.tokens_used
+        if log.model is not None:
+            ctx["model"] = log.model
+
+        # Determine result status
+        result_enum = self._parse_result(log.result)
+
+        # Create trigger and solution from message info
+        trigger = f"User: {truncate_message(log.user_message[:100])}"
+        solution = f"Agent: {truncate_message(log.agent_message[:100])}"
+
+        action = create_action(
+            action_type=ActionType.MESSAGE,
+            trigger=trigger,
+            solution=solution,
+            result=result_enum,
+            context=ctx,
         )
 
         return self.log_action(action)

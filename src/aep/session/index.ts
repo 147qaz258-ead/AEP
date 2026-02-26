@@ -37,5 +37,6 @@ export {
   type ToolCallOptions,
   type ToolCallLog,
   type MessageOptions,
+  type MessageLog,
   type DecisionOptions,
 } from './action-logger';

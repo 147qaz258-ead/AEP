@@ -21,6 +21,7 @@ import {
   ActionResult,
   createAgentAction,
   ToolCallLog,
+  MessageLog,
 } from '../index';
 
 describe('ActionLogger', () => {
@@ -337,6 +338,159 @@ describe('ActionLogger', () => {
       );
 
       expect(actionId).toBeDefined();
+    });
+  });
+
+  describe('log_message', () => {
+    it('should log a message with user_message and agent_message', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_message({
+        user_message: 'What is the capital of France?',
+        agent_message: 'The capital of France is Paris.',
+      });
+
+      expect(actionId).toBeDefined();
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.action_type).toBe('message');
+      expect(action.context.user_message).toBe('What is the capital of France?');
+      expect(action.context.agent_message).toBe('The capital of France is Paris.');
+      expect(action.result).toBe('success');
+    });
+
+    it('should log message with tokens_used', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_message({
+        user_message: 'Hello',
+        agent_message: 'Hi there!',
+        tokens_used: 25,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.tokens_used).toBe(25);
+    });
+
+    it('should log message with model info', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_message({
+        user_message: 'Test',
+        agent_message: 'Response',
+        model: 'claude-3-opus',
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.model).toBe('claude-3-opus');
+    });
+
+    it('should log message with all optional fields', () => {
+      recorder.startSession();
+
+      const actionId = logger.log_message({
+        user_message: 'Complex query',
+        agent_message: 'Detailed response',
+        tokens_used: 150,
+        model: 'claude-3-opus',
+        context: { conversation_id: 'conv_123' },
+        result: 'partial',
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+      expect(action.context.tokens_used).toBe(150);
+      expect(action.context.model).toBe('claude-3-opus');
+      expect(action.context.conversation_id).toBe('conv_123');
+      expect(action.result).toBe('partial');
+    });
+
+    it('should truncate messages longer than 10KB', () => {
+      recorder.startSession();
+
+      // Create a message longer than 10KB
+      const longMessage = 'x'.repeat(11000);
+
+      const actionId = logger.log_message({
+        user_message: longMessage,
+        agent_message: longMessage,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+
+      // Check truncation
+      expect((action.context.user_message as string).length).toBeLessThanOrEqual(10020); // 10000 + '...[truncated]'
+      expect((action.context.user_message as string)).toContain('...[truncated]');
+      expect((action.context.agent_message as string).length).toBeLessThanOrEqual(10020);
+      expect((action.context.agent_message as string)).toContain('...[truncated]');
+    });
+
+    it('should not truncate short messages', () => {
+      recorder.startSession();
+
+      const shortMessage = 'This is a short message';
+
+      logger.log_message({
+        user_message: shortMessage,
+        agent_message: shortMessage,
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      const action = session!.actions[0];
+
+      expect(action.context.user_message).toBe(shortMessage);
+      expect(action.context.agent_message).toBe(shortMessage);
+    });
+
+    it('should handle failure result', () => {
+      recorder.startSession();
+
+      logger.log_message({
+        user_message: 'Query',
+        agent_message: 'Error: Unable to process',
+        result: 'failure',
+      });
+
+      const session = recorder.getSession(recorder.getActiveSession()!);
+      expect(session!.actions[0].result).toBe('failure');
+    });
+
+    it('should persist log_message to JSONL file', () => {
+      const sessionId = recorder.startSession();
+
+      logger.log_message({
+        user_message: 'What is TypeScript?',
+        agent_message: 'TypeScript is a typed superset of JavaScript.',
+        tokens_used: 50,
+        model: 'claude-3-opus',
+      });
+
+      // Verify file content
+      const filePath = path.join(tempDir, '.aep', 'sessions', `${sessionId}.jsonl`);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      expect(lines).toHaveLength(2); // header + 1 action
+
+      const actionLine = JSON.parse(lines[1]);
+      expect(actionLine._type).toBe('action');
+      expect(actionLine.action.action_type).toBe('message');
+      expect(actionLine.action.context.user_message).toBe('What is TypeScript?');
+      expect(actionLine.action.context.tokens_used).toBe(50);
+      expect(actionLine.action.context.model).toBe('claude-3-opus');
+    });
+
+    it('should throw SessionNotActiveError without active session', () => {
+      expect(() =>
+        logger.log_message({
+          user_message: 'Test',
+          agent_message: 'Response',
+        })
+      ).toThrow(SessionNotActiveError);
     });
   });
 
