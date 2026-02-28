@@ -38,6 +38,7 @@ Thumbs.db
 .shrimp/
 .serena/
 .beads/
+.claude/
 
 # Build artifacts
 *.js.map
@@ -54,3 +55,9 @@ src/**/*.d.ts
 # Test coverage
 coverage/
 .nyc_output/
+
+# Large files
+*.exe
+
+# Documentation
+docs/
