@@ -6,7 +6,7 @@
 > 任务标题：Session Compressor 压缩器实现
 > Epic：E-004 Session Memory
 > Epic 目录：`E-004-Session-Memory`
-> 状态（以 beads 为准）：TODO
+> 状态（以 beads 为准）：DONE
 > 负责人：（待分配）
 > 预估工期：6h
 > 创建日期：2026-02-24
@@ -54,17 +54,17 @@
 
 ### 3.1 功能验收标准
 
-- [ ] AC1：`compress(session_path)` 生成 Markdown 摘要文件
-- [ ] AC2：摘要包含 user_intent、main_problems、successful_solutions
-- [ ] AC3：摘要包含 failed_attempts、feedback_summary、metrics
-- [ ] AC4：压缩比 >= 70%（原始大小 vs 摘要大小）
-- [ ] AC5：原始 JSONL 文件可 gzip 压缩归档
-- [ ] AC6：摘要文件人类可读
+- [x] AC1：`compress(session_path)` 生成 Markdown 摘要文件
+- [x] AC2：摘要包含 user_intent、main_problems、successful_solutions
+- [x] AC3：摘要包含 failed_attempts、feedback_summary、metrics
+- [x] AC4：压缩比 >= 70%（原始大小 vs 摘要大小）
+- [x] AC5：原始 JSONL 文件可 gzip 压缩归档
+- [x] AC6：摘要文件人类可读
 
 ### 3.2 质量验收标准
 
-- [ ] 代码覆盖率 >= 70%
-- [ ] 1000 条行动的会话压缩时间 < 5s
+- [x] 代码覆盖率 >= 70%
+- [x] 1000 条行动的会话压缩时间 < 5s
 
 ---
 

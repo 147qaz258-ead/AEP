@@ -50,6 +50,7 @@ class Feedback:
         rating: User's rating (1-5, only for explicit feedback)
         comment: User's comment (optional, for explicit feedback)
         outcome: Outcome inferred from user behavior (for implicit feedback)
+        evidence: Evidence for implicit feedback (describes why feedback was inferred)
         metadata: Additional metadata
     """
     session_id: str
@@ -62,6 +63,7 @@ class Feedback:
     rating: Optional[int] = None
     comment: Optional[str] = None
     outcome: Optional[ActionOutcome] = None
+    evidence: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -82,6 +84,8 @@ class Feedback:
             result["comment"] = self.comment
         if self.outcome is not None:
             result["outcome"] = self.outcome.value if isinstance(self.outcome, ActionOutcome) else self.outcome
+        if self.evidence is not None:
+            result["evidence"] = self.evidence
         if self.metadata is not None:
             result["metadata"] = self.metadata
         return result
@@ -106,6 +110,7 @@ class Feedback:
             rating=data.get("rating"),
             comment=data.get("comment"),
             outcome=outcome,
+            evidence=data.get("evidence"),
             metadata=data.get("metadata"),
         )
 

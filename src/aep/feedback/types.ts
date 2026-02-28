@@ -46,6 +46,8 @@ export interface Feedback {
   outcome?: ActionOutcome;
   /** Confidence score of the feedback (0-1) */
   confidence: number;
+  /** Evidence for implicit feedback (describes why feedback was inferred) */
+  evidence?: string;
   /** Additional metadata */
   metadata?: Record<string, unknown>;
 }
@@ -71,6 +73,8 @@ export interface CreateImplicitFeedbackOptions {
   agent_id: string;
   outcome: ActionOutcome;
   confidence: number;
+  /** Evidence describing why feedback was inferred */
+  evidence?: string;
   metadata?: Record<string, unknown>;
 }
 

@@ -414,4 +414,178 @@ describe('FeedbackCollector', () => {
       expect(feedback?.rating).toBe(5);
     });
   });
+
+  describe('implicit feedback', () => {
+    describe('submitImplicit', () => {
+      it('should submit implicit feedback with all fields', () => {
+        const feedback = collector.submitImplicit({
+          session_id: 'session_123',
+          agent_id: 'agent_001',
+          action_id: 'action_456',
+          outcome: 'success',
+          confidence: 0.8,
+          evidence: 'user_accepted_suggestion',
+        });
+
+        expect(feedback.id).toBeDefined();
+        expect(feedback.id).toMatch(/^fb_/);
+        expect(feedback.session_id).toBe('session_123');
+        expect(feedback.agent_id).toBe('agent_001');
+        expect(feedback.action_id).toBe('action_456');
+        expect(feedback.type).toBe('implicit');
+        expect(feedback.outcome).toBe('success');
+        expect(feedback.confidence).toBe(0.8);
+        expect(feedback.evidence).toBe('user_accepted_suggestion');
+        expect(feedback.rating).toBeUndefined();
+      });
+
+      it('should submit implicit feedback with minimal fields', () => {
+        const feedback = collector.submitImplicit({
+          session_id: 'session_123',
+          agent_id: 'agent_001',
+          outcome: 'failure',
+          confidence: 0.5,
+        });
+
+        expect(feedback.action_id).toBeUndefined();
+        expect(feedback.evidence).toBeUndefined();
+        expect(feedback.outcome).toBe('failure');
+        expect(feedback.confidence).toBe(0.5);
+      });
+    });
+
+    describe('inferFromAcceptance', () => {
+      it('should infer positive feedback from acceptance', () => {
+        const feedback = collector.inferFromAcceptance(
+          'session_123',
+          'agent_001',
+          'action_456'
+        );
+
+        expect(feedback.type).toBe('implicit');
+        expect(feedback.outcome).toBe('success');
+        expect(feedback.confidence).toBe(0.8);
+        expect(feedback.evidence).toBe('user_accepted_suggestion');
+      });
+
+      it('should allow custom evidence', () => {
+        const feedback = collector.inferFromAcceptance(
+          'session_123',
+          'agent_001',
+          'action_456',
+          'user_clicked_apply_button'
+        );
+
+        expect(feedback.evidence).toBe('user_clicked_apply_button');
+      });
+    });
+
+    describe('inferFromRejection', () => {
+      it('should infer negative feedback from rejection', () => {
+        const feedback = collector.inferFromRejection(
+          'session_123',
+          'agent_001',
+          'action_456'
+        );
+
+        expect(feedback.type).toBe('implicit');
+        expect(feedback.outcome).toBe('failure');
+        expect(feedback.confidence).toBe(0.9);
+        expect(feedback.evidence).toBe('user_rejected_suggestion');
+      });
+    });
+
+    describe('inferFromCopy', () => {
+      it('should infer positive feedback from copy', () => {
+        const feedback = collector.inferFromCopy(
+          'session_123',
+          'agent_001',
+          'action_456'
+        );
+
+        expect(feedback.type).toBe('implicit');
+        expect(feedback.outcome).toBe('success');
+        expect(feedback.confidence).toBe(0.7);
+        expect(feedback.evidence).toBe('user_copied_content');
+      });
+    });
+
+    describe('inferFromSessionDuration', () => {
+      it('should infer failure from short session (< 30s)', () => {
+        const feedback = collector.inferFromSessionDuration(
+          'session_123',
+          'agent_001',
+          'action_456',
+          15
+        );
+
+        expect(feedback.outcome).toBe('failure');
+        expect(feedback.confidence).toBe(0.6);
+        expect(feedback.evidence).toBe('short_session_15s');
+      });
+
+      it('should infer success from long session (> 5min)', () => {
+        const feedback = collector.inferFromSessionDuration(
+          'session_123',
+          'agent_001',
+          'action_456',
+          400
+        );
+
+        expect(feedback.outcome).toBe('success');
+        expect(feedback.confidence).toBe(0.6);
+        expect(feedback.evidence).toBe('long_session_400s');
+      });
+
+      it('should infer partial from medium session', () => {
+        const feedback = collector.inferFromSessionDuration(
+          'session_123',
+          'agent_001',
+          'action_456',
+          120
+        );
+
+        expect(feedback.outcome).toBe('partial');
+        expect(feedback.confidence).toBe(0.5);
+        expect(feedback.evidence).toBe('session_duration_120s');
+      });
+    });
+
+    describe('inferFromSimilarQuestion', () => {
+      it('should infer partial feedback from similar question', () => {
+        const feedback = collector.inferFromSimilarQuestion(
+          'session_123',
+          'agent_001',
+          'action_456'
+        );
+
+        expect(feedback.type).toBe('implicit');
+        expect(feedback.outcome).toBe('partial');
+        expect(feedback.confidence).toBe(0.7);
+        expect(feedback.evidence).toBe('user_asked_similar_question');
+      });
+    });
+
+    describe('getStats with implicit feedback', () => {
+      it('should calculate implicit feedback statistics', () => {
+        collector.submitExplicit({
+          session_id: 'session_1',
+          agent_id: 'agent_001',
+          action_id: 'action_1',
+          rating: 5,
+        });
+
+        collector.inferFromAcceptance('session_1', 'agent_001', 'action_2');
+        collector.inferFromRejection('session_1', 'agent_001', 'action_3');
+
+        const stats = collector.getStats('session_1');
+
+        expect(stats.total_feedback).toBe(3);
+        expect(stats.explicit_count).toBe(1);
+        expect(stats.implicit_count).toBe(2);
+        expect(stats.outcome_distribution.success).toBe(1);
+        expect(stats.outcome_distribution.failure).toBe(1);
+      });
+    });
+  });
 });

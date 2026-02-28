@@ -6,10 +6,11 @@
 > 任务标题：FeedbackCollector 隐式反馈收集
 > Epic：E-004 Session Memory
 > Epic 目录：`E-004-Session-Memory`
-> 状态（以 beads 为准）：TODO
-> 负责人：（待分配）
+> 状态（以 beads 为准）：DONE
+> 负责人：dev
 > 预估工期：4h
 > 创建日期：2026-02-23
+> 完成日期：2026-02-27
 
 ---
 
@@ -32,10 +33,10 @@
 
 ## 3. 验收标准
 
-- [ ] AC1：`collect_implicit_feedback()` 正确推断并关联反馈
-- [ ] AC2：支持用户采纳建议推断为正面反馈
-- [ ] AC3：支持用户重新提问推断为负面反馈
-- [ ] AC4：隐式反馈包含 evidence 字段说明推断依据
+- [x] AC1：`collect_implicit_feedback()` 正确推断并关联反馈
+- [x] AC2：支持用户采纳建议推断为正面反馈
+- [x] AC3：支持用户重新提问推断为负面反馈
+- [x] AC4：隐式反馈包含 evidence 字段说明推断依据
 
 ---
 

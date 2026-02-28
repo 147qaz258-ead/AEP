@@ -77,6 +77,26 @@ export interface SubmitExplicitFeedbackOptions {
 }
 
 /**
+ * Options for submitting implicit feedback.
+ */
+export interface SubmitImplicitFeedbackOptions {
+  /** ID of the session this feedback belongs to */
+  session_id: string;
+  /** ID of the agent that received the feedback */
+  agent_id: string;
+  /** ID of the action this feedback is for (optional) */
+  action_id?: string;
+  /** Outcome inferred from user behavior */
+  outcome: ActionOutcome;
+  /** Confidence score of the inference (0-1) */
+  confidence: number;
+  /** Evidence describing why feedback was inferred */
+  evidence?: string;
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Generate a unique ID for feedback entries
  */
 function generateFeedbackId(): string {
@@ -205,6 +225,175 @@ export class FeedbackCollector {
       rating,
       comment,
       user_id: userId,
+    });
+  }
+
+  /**
+   * Submit implicit feedback for an action.
+   *
+   * Creates a new implicit feedback entry and persists it to a JSONL file.
+   * Implicit feedback is inferred from user behavior, not explicitly provided.
+   *
+   * @param options - Implicit feedback submission options
+   * @returns The created Feedback object
+   */
+  submitImplicit(options: SubmitImplicitFeedbackOptions): Feedback {
+    const feedback: Feedback = {
+      id: generateFeedbackId(),
+      session_id: options.session_id,
+      agent_id: options.agent_id,
+      action_id: options.action_id,
+      created_at: new Date().toISOString(),
+      type: 'implicit',
+      outcome: options.outcome,
+      confidence: options.confidence,
+      evidence: options.evidence,
+      metadata: options.metadata,
+    };
+
+    // Persist to JSONL file
+    this.appendFeedback(feedback);
+
+    return feedback;
+  }
+
+  /**
+   * Infer positive feedback from user accepting a suggestion.
+   *
+   * @param sessionId - The session ID
+   * @param agentId - The agent ID
+   * @param actionId - The action ID that was accepted
+   * @param evidence - Optional custom evidence
+   * @returns The created Feedback object
+   */
+  inferFromAcceptance(
+    sessionId: string,
+    agentId: string,
+    actionId: string,
+    evidence?: string
+  ): Feedback {
+    return this.submitImplicit({
+      session_id: sessionId,
+      agent_id: agentId,
+      action_id: actionId,
+      outcome: 'success',
+      confidence: 0.8,
+      evidence: evidence ?? 'user_accepted_suggestion',
+    });
+  }
+
+  /**
+   * Infer negative feedback from user rejecting a suggestion.
+   *
+   * @param sessionId - The session ID
+   * @param agentId - The agent ID
+   * @param actionId - The action ID that was rejected
+   * @param evidence - Optional custom evidence
+   * @returns The created Feedback object
+   */
+  inferFromRejection(
+    sessionId: string,
+    agentId: string,
+    actionId: string,
+    evidence?: string
+  ): Feedback {
+    return this.submitImplicit({
+      session_id: sessionId,
+      agent_id: agentId,
+      action_id: actionId,
+      outcome: 'failure',
+      confidence: 0.9,
+      evidence: evidence ?? 'user_rejected_suggestion',
+    });
+  }
+
+  /**
+   * Infer positive feedback from user copying content.
+   *
+   * @param sessionId - The session ID
+   * @param agentId - The agent ID
+   * @param actionId - The action ID with content that was copied
+   * @returns The created Feedback object
+   */
+  inferFromCopy(sessionId: string, agentId: string, actionId: string): Feedback {
+    return this.submitImplicit({
+      session_id: sessionId,
+      agent_id: agentId,
+      action_id: actionId,
+      outcome: 'success',
+      confidence: 0.7,
+      evidence: 'user_copied_content',
+    });
+  }
+
+  /**
+   * Infer feedback from session duration.
+   *
+   * Short sessions (< 30s) suggest the problem wasn't solved.
+   * Long sessions (> 5min) suggest detailed engagement.
+   *
+   * @param sessionId - The session ID
+   * @param agentId - The agent ID
+   * @param actionId - The last action ID
+   * @param durationSeconds - Session duration in seconds
+   * @returns The created Feedback object
+   */
+  inferFromSessionDuration(
+    sessionId: string,
+    agentId: string,
+    actionId: string,
+    durationSeconds: number
+  ): Feedback {
+    let outcome: ActionOutcome;
+    let confidence: number;
+    let evidence: string;
+
+    if (durationSeconds < 30) {
+      outcome = 'failure';
+      confidence = 0.6;
+      evidence = `short_session_${durationSeconds}s`;
+    } else if (durationSeconds > 300) {
+      outcome = 'success';
+      confidence = 0.6;
+      evidence = `long_session_${durationSeconds}s`;
+    } else {
+      outcome = 'partial';
+      confidence = 0.5;
+      evidence = `session_duration_${durationSeconds}s`;
+    }
+
+    return this.submitImplicit({
+      session_id: sessionId,
+      agent_id: agentId,
+      action_id: actionId,
+      outcome,
+      confidence,
+      evidence,
+    });
+  }
+
+  /**
+   * Infer negative feedback from user asking a similar question.
+   *
+   * This suggests the previous response didn't fully address the user's needs.
+   *
+   * @param sessionId - The session ID
+   * @param agentId - The agent ID
+   * @param actionId - The action ID that didn't satisfy the user
+   * @returns The created Feedback object
+   */
+  inferFromSimilarQuestion(
+    sessionId: string,
+    agentId: string,
+    actionId: string
+  ): Feedback {
+    return this.submitImplicit({
+      session_id: sessionId,
+      agent_id: agentId,
+      action_id: actionId,
+      outcome: 'partial',
+      confidence: 0.7,
+      evidence: 'user_asked_similar_question',
     });
   }
 
@@ -366,9 +555,7 @@ export class FeedbackCollector {
     return true;
   }
 
-  /**
-   * Get the storage file path for a session's feedback.
-   */
+  // @ts-ignore - Deprecated method kept for API compatibility
   private getFeedbackFile(sessionId: string): string {
     return path.join(this.storageDir, `${sessionId}.jsonl`);
   }

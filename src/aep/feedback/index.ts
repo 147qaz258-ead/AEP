@@ -33,4 +33,5 @@ export {
   FeedbackNotFoundError,
   InvalidRatingError,
   type SubmitExplicitFeedbackOptions,
+  type SubmitImplicitFeedbackOptions,
 } from './collector';

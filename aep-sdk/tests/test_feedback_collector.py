@@ -25,6 +25,7 @@ from aep_sdk.feedback import (
     InvalidRatingError,
     FeedbackType,
     FeedbackStats,
+    ActionOutcome,
 )
 from aep_sdk.feedback.collector import (
     FeedbackRecord,
@@ -569,3 +570,207 @@ class TestFeedbackRecord:
         assert record._type == "feedback"
         assert record.feedback.session_id == "session_123"
         assert record.feedback.rating == 5
+
+
+class TestImplicitFeedback:
+    """Tests for implicit feedback methods."""
+
+    def test_submit_implicit_with_all_fields(self):
+        """Test submitting implicit feedback with all fields."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.submit_implicit(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+                outcome=ActionOutcome.SUCCESS,
+                confidence=0.8,
+                evidence="user_accepted_suggestion",
+            )
+
+            assert feedback.id is not None
+            assert feedback.id.startswith("fb_")
+            assert feedback.session_id == "session_123"
+            assert feedback.agent_id == "agent_001"
+            assert feedback.action_id == "action_456"
+            assert feedback.type == FeedbackType.IMPLICIT
+            assert feedback.outcome == ActionOutcome.SUCCESS
+            assert feedback.confidence == 0.8
+            assert feedback.evidence == "user_accepted_suggestion"
+            assert feedback.rating is None
+
+    def test_submit_implicit_with_minimal_fields(self):
+        """Test submitting implicit feedback with minimal fields."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.submit_implicit(
+                session_id="session_123",
+                agent_id="agent_001",
+                outcome=ActionOutcome.FAILURE,
+                confidence=0.5,
+            )
+
+            assert feedback.action_id is None
+            assert feedback.evidence is None
+            assert feedback.outcome == ActionOutcome.FAILURE
+            assert feedback.confidence == 0.5
+
+    def test_infer_from_acceptance(self):
+        """Test inferring positive feedback from acceptance."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_acceptance(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+            )
+
+            assert feedback.type == FeedbackType.IMPLICIT
+            assert feedback.outcome == ActionOutcome.SUCCESS
+            assert feedback.confidence == 0.8
+            assert feedback.evidence == "user_accepted_suggestion"
+
+    def test_infer_from_acceptance_custom_evidence(self):
+        """Test inferring feedback from acceptance with custom evidence."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_acceptance(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+                evidence="user_clicked_apply_button",
+            )
+
+            assert feedback.evidence == "user_clicked_apply_button"
+
+    def test_infer_from_rejection(self):
+        """Test inferring negative feedback from rejection."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_rejection(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+            )
+
+            assert feedback.type == FeedbackType.IMPLICIT
+            assert feedback.outcome == ActionOutcome.FAILURE
+            assert feedback.confidence == 0.9
+            assert feedback.evidence == "user_rejected_suggestion"
+
+    def test_infer_from_copy(self):
+        """Test inferring positive feedback from copy."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_copy(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+            )
+
+            assert feedback.type == FeedbackType.IMPLICIT
+            assert feedback.outcome == ActionOutcome.SUCCESS
+            assert feedback.confidence == 0.7
+            assert feedback.evidence == "user_copied_content"
+
+    def test_infer_from_session_duration_short(self):
+        """Test inferring failure from short session."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_session_duration(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+                duration_seconds=15,
+            )
+
+            assert feedback.outcome == ActionOutcome.FAILURE
+            assert feedback.confidence == 0.6
+            assert "short_session" in feedback.evidence
+
+    def test_infer_from_session_duration_long(self):
+        """Test inferring success from long session."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_session_duration(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+                duration_seconds=400,
+            )
+
+            assert feedback.outcome == ActionOutcome.SUCCESS
+            assert feedback.confidence == 0.6
+            assert "long_session" in feedback.evidence
+
+    def test_infer_from_session_duration_medium(self):
+        """Test inferring partial from medium session."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_session_duration(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+                duration_seconds=120,
+            )
+
+            assert feedback.outcome == ActionOutcome.PARTIAL
+            assert feedback.confidence == 0.5
+            assert "session_duration" in feedback.evidence
+
+    def test_infer_from_similar_question(self):
+        """Test inferring partial feedback from similar question."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            feedback = collector.infer_from_similar_question(
+                session_id="session_123",
+                agent_id="agent_001",
+                action_id="action_456",
+            )
+
+            assert feedback.type == FeedbackType.IMPLICIT
+            assert feedback.outcome == ActionOutcome.PARTIAL
+            assert feedback.confidence == 0.7
+            assert feedback.evidence == "user_asked_similar_question"
+
+    def test_get_stats_with_implicit_feedback(self):
+        """Test calculating implicit feedback statistics."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            collector = FeedbackCollector(tmpdir)
+
+            collector.submit_explicit(
+                session_id="session_1",
+                agent_id="agent_001",
+                action_id="action_1",
+                rating=5,
+            )
+
+            collector.infer_from_acceptance(
+                session_id="session_1",
+                agent_id="agent_001",
+                action_id="action_2",
+            )
+
+            collector.infer_from_rejection(
+                session_id="session_1",
+                agent_id="agent_001",
+                action_id="action_3",
+            )
+
+            stats = collector.get_stats("session_1")
+
+            assert stats.total_feedback == 3
+            assert stats.explicit_count == 1
+            assert stats.implicit_count == 2
+            assert stats.outcome_distribution["success"] == 1
+            assert stats.outcome_distribution["failure"] == 1

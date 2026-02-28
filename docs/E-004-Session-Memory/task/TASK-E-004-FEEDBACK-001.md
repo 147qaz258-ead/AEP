@@ -6,7 +6,7 @@
 > 任务标题：Feedback 数据模型定义
 > Epic：E-004 Session Memory
 > Epic 目录：`E-004-Session-Memory`
-> 状态（以 beads 为准）：TODO
+> 状态（以 beads 为准）：DONE
 > 负责人：（待分配）
 > 预估工期：2h
 > 创建日期：2026-02-23
@@ -32,10 +32,10 @@
 
 ## 3. 验收标准
 
-- [ ] AC1：Feedback 数据类包含 action_id, type, value, score, source, timestamp
-- [ ] AC2：支持显式反馈（explicit）和隐式反馈（implicit）类型
-- [ ] AC3：value 支持 positive/negative/neutral 三种值
-- [ ] AC4：score 为可选字段，范围 0-1
+- [x] AC1：Feedback 数据类包含 action_id, type, value, score, source, timestamp
+- [x] AC2：支持显式反馈（explicit）和隐式反馈（implicit）类型
+- [x] AC3：value 支持 positive/negative/neutral 三种值
+- [x] AC4：score 为可选字段，范围 0-1
 
 ---
 

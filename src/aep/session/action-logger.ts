@@ -8,10 +8,8 @@
 
 import {
   AgentAction,
-  ActionType,
   ActionResult,
   createAgentAction,
-  generateId,
 } from './types';
 import { SessionRecorder, SessionNotActiveError } from './recorder';
 

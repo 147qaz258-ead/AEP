@@ -363,7 +363,7 @@ export class GDICalculator {
       ['confidence', dimensions.confidence],
     ];
 
-    for (const [name, value] of dimensionEntries) {
+    for (const [_name, value] of dimensionEntries) {
       if (value < 0.0 || value > 1.0) {
         return false;
       }

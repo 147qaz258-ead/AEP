@@ -242,6 +242,208 @@ class FeedbackCollector:
             user_id=user_id,
         )
 
+    def submit_implicit(
+        self,
+        session_id: str,
+        agent_id: str,
+        outcome: ActionOutcome,
+        confidence: float,
+        action_id: Optional[str] = None,
+        evidence: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Feedback:
+        """
+        Submit implicit feedback for an action.
+
+        Implicit feedback is inferred from user behavior, not explicitly provided.
+
+        Args:
+            session_id: ID of the session this feedback belongs to
+            agent_id: ID of the agent that received the feedback
+            outcome: Outcome inferred from user behavior
+            confidence: Confidence score of the inference (0-1)
+            action_id: ID of the action this feedback is for (optional)
+            evidence: Evidence describing why feedback was inferred
+            metadata: Additional metadata
+
+        Returns:
+            The created Feedback object
+        """
+        # Clamp confidence to valid range
+        confidence = max(0.0, min(1.0, confidence))
+
+        feedback = Feedback(
+            id=_generate_feedback_id(),
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            created_at=datetime.utcnow().isoformat() + "Z",
+            type=FeedbackType.IMPLICIT,
+            outcome=outcome,
+            confidence=confidence,
+            evidence=evidence,
+            metadata=metadata,
+        )
+
+        # Persist to JSONL file
+        self._append_feedback(feedback)
+
+        return feedback
+
+    def infer_from_acceptance(
+        self,
+        session_id: str,
+        agent_id: str,
+        action_id: str,
+        evidence: Optional[str] = None,
+    ) -> Feedback:
+        """
+        Infer positive feedback from user accepting a suggestion.
+
+        Args:
+            session_id: The session ID
+            agent_id: The agent ID
+            action_id: The action ID that was accepted
+            evidence: Optional custom evidence
+
+        Returns:
+            The created Feedback object
+        """
+        return self.submit_implicit(
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            outcome=ActionOutcome.SUCCESS,
+            confidence=0.8,
+            evidence=evidence or "user_accepted_suggestion",
+        )
+
+    def infer_from_rejection(
+        self,
+        session_id: str,
+        agent_id: str,
+        action_id: str,
+        evidence: Optional[str] = None,
+    ) -> Feedback:
+        """
+        Infer negative feedback from user rejecting a suggestion.
+
+        Args:
+            session_id: The session ID
+            agent_id: The agent ID
+            action_id: The action ID that was rejected
+            evidence: Optional custom evidence
+
+        Returns:
+            The created Feedback object
+        """
+        return self.submit_implicit(
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            outcome=ActionOutcome.FAILURE,
+            confidence=0.9,
+            evidence=evidence or "user_rejected_suggestion",
+        )
+
+    def infer_from_copy(
+        self,
+        session_id: str,
+        agent_id: str,
+        action_id: str,
+    ) -> Feedback:
+        """
+        Infer positive feedback from user copying content.
+
+        Args:
+            session_id: The session ID
+            agent_id: The agent ID
+            action_id: The action ID with content that was copied
+
+        Returns:
+            The created Feedback object
+        """
+        return self.submit_implicit(
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            outcome=ActionOutcome.SUCCESS,
+            confidence=0.7,
+            evidence="user_copied_content",
+        )
+
+    def infer_from_session_duration(
+        self,
+        session_id: str,
+        agent_id: str,
+        action_id: str,
+        duration_seconds: float,
+    ) -> Feedback:
+        """
+        Infer feedback from session duration.
+
+        Short sessions (< 30s) suggest the problem wasn't solved.
+        Long sessions (> 5min) suggest detailed engagement.
+
+        Args:
+            session_id: The session ID
+            agent_id: The agent ID
+            action_id: The last action ID
+            duration_seconds: Session duration in seconds
+
+        Returns:
+            The created Feedback object
+        """
+        if duration_seconds < 30:
+            outcome = ActionOutcome.FAILURE
+            confidence = 0.6
+            evidence = f"short_session_{int(duration_seconds)}s"
+        elif duration_seconds > 300:
+            outcome = ActionOutcome.SUCCESS
+            confidence = 0.6
+            evidence = f"long_session_{int(duration_seconds)}s"
+        else:
+            outcome = ActionOutcome.PARTIAL
+            confidence = 0.5
+            evidence = f"session_duration_{int(duration_seconds)}s"
+
+        return self.submit_implicit(
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            outcome=outcome,
+            confidence=confidence,
+            evidence=evidence,
+        )
+
+    def infer_from_similar_question(
+        self,
+        session_id: str,
+        agent_id: str,
+        action_id: str,
+    ) -> Feedback:
+        """
+        Infer negative feedback from user asking a similar question.
+
+        This suggests the previous response didn't fully address the user's needs.
+
+        Args:
+            session_id: The session ID
+            agent_id: The agent ID
+            action_id: The action ID that didn't satisfy the user
+
+        Returns:
+            The created Feedback object
+        """
+        return self.submit_implicit(
+            session_id=session_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            outcome=ActionOutcome.PARTIAL,
+            confidence=0.7,
+            evidence="user_asked_similar_question",
+        )
+
     def get_feedback(self, action_id: str) -> Optional[Feedback]:
         """
         Get feedback for a specific action.
